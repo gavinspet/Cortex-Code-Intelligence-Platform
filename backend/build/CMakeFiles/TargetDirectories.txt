@@ -1,0 +1,3 @@
+/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build/CMakeFiles/cortex.dir
+/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build/CMakeFiles/edit_cache.dir
+/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build/CMakeFiles/rebuild_cache.dir

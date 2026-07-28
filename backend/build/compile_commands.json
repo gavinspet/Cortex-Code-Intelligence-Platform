@@ -1,0 +1,50 @@
+[
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/app/Application.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/app/Application.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/app/Application.cpp",
+  "output": "CMakeFiles/cortex.dir/src/app/Application.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/app/ApplicationFactory.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/app/ApplicationFactory.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/app/ApplicationFactory.cpp",
+  "output": "CMakeFiles/cortex.dir/src/app/ApplicationFactory.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/config/ConfigurationValidator.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/config/ConfigurationValidator.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/config/ConfigurationValidator.cpp",
+  "output": "CMakeFiles/cortex.dir/src/config/ConfigurationValidator.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/config/FileConfiguration.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/config/FileConfiguration.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/config/FileConfiguration.cpp",
+  "output": "CMakeFiles/cortex.dir/src/config/FileConfiguration.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/core/di/ServiceContainer.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/core/di/ServiceContainer.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/core/di/ServiceContainer.cpp",
+  "output": "CMakeFiles/cortex.dir/src/core/di/ServiceContainer.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/logging/LoggerFactory.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/logging/LoggerFactory.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/logging/LoggerFactory.cpp",
+  "output": "CMakeFiles/cortex.dir/src/logging/LoggerFactory.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/logging/SpdlogLogger.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/logging/SpdlogLogger.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/logging/SpdlogLogger.cpp",
+  "output": "CMakeFiles/cortex.dir/src/logging/SpdlogLogger.cpp.o"
+},
+{
+  "directory": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/build",
+  "command": "/usr/bin/c++  -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/cortex.dir/src/main.cpp.o -c /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/main.cpp",
+  "file": "/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src/main.cpp",
+  "output": "CMakeFiles/cortex.dir/src/main.cpp.o"
+}
+]
