@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 
-const API = ''  // proxied by Vite dev server
+const API = import.meta.env.VITE_API_URL || ''  // env var for production, empty for dev proxy
 
 function LanguageBar({ name, count, total }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
