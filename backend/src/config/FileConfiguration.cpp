@@ -1,3 +1,17 @@
+/**
+ * @file FileConfiguration.cpp
+ * @brief Loads and parses config.json using jsoncpp, implementing the Configuration interface
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "config/FileConfiguration.h"
 #include <fstream>
 #include <sstream>

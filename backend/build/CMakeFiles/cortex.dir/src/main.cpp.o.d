@@ -34,6 +34,8 @@ CMakeFiles/cortex.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar2-decl.h \
+ /usr/include/x86_64-linux-gnu/bits/wchar2.h \
  /usr/include/c++/13/type_traits /usr/include/c++/13/compare \
  /usr/include/c++/13/concepts /usr/include/c++/13/bits/stl_construct.h \
  /usr/include/c++/13/new /usr/include/c++/13/bits/exception.h \
@@ -100,22 +102,28 @@ CMakeFiles/cortex.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+ /usr/include/x86_64-linux-gnu/bits/select2.h \
+ /usr/include/x86_64-linux-gnu/bits/select-decl.h \
  /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
  /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
  /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
  /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
  /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
  /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h /usr/include/alloca.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib-bsearch.h \
  /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+ /usr/include/x86_64-linux-gnu/bits/stdlib.h \
  /usr/include/c++/13/bits/std_abs.h /usr/include/c++/13/cstdio \
  /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
  /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
  /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
- /usr/include/c++/13/cerrno /usr/include/errno.h \
- /usr/include/x86_64-linux-gnu/bits/errno.h /usr/include/linux/errno.h \
- /usr/include/x86_64-linux-gnu/asm/errno.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio2-decl.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio.h \
+ /usr/include/x86_64-linux-gnu/bits/stdio2.h /usr/include/c++/13/cerrno \
+ /usr/include/errno.h /usr/include/x86_64-linux-gnu/bits/errno.h \
+ /usr/include/linux/errno.h /usr/include/x86_64-linux-gnu/asm/errno.h \
  /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
  /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
  /usr/include/c++/13/bits/charconv.h \
@@ -190,6 +198,8 @@ CMakeFiles/cortex.dir/src/main.cpp.o: \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd.h \
+ /usr/include/x86_64-linux-gnu/bits/unistd-decl.h \
  /usr/include/x86_64-linux-gnu/bits/unistd_ext.h \
  /usr/include/linux/close_range.h /usr/include/syscall.h \
  /usr/include/x86_64-linux-gnu/sys/syscall.h \
@@ -202,22 +212,183 @@ CMakeFiles/cortex.dir/src/main.cpp.o: \
  /usr/include/c++/13/bits/ranges_algobase.h \
  /usr/include/c++/13/pstl/glue_memory_defs.h \
  /usr/include/c++/13/pstl/execution_defs.h \
- /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/logging/Logger.h \
- /usr/include/c++/13/functional /usr/include/c++/13/bits/std_function.h \
- /usr/include/c++/13/unordered_map \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/core/di/ServiceContainer.h \
+ /usr/include/c++/13/typeindex /usr/include/c++/13/unordered_map \
  /usr/include/c++/13/bits/unordered_map.h \
  /usr/include/c++/13/bits/hashtable.h \
  /usr/include/c++/13/bits/hashtable_policy.h \
  /usr/include/c++/13/bits/node_handle.h \
- /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/vector \
+ /usr/include/c++/13/bits/erase_if.h /usr/include/c++/13/functional \
+ /usr/include/c++/13/bits/std_function.h /usr/include/c++/13/vector \
  /usr/include/c++/13/bits/stl_vector.h \
  /usr/include/c++/13/bits/stl_bvector.h \
  /usr/include/c++/13/bits/vector.tcc /usr/include/c++/13/array \
  /usr/include/c++/13/bits/stl_algo.h \
  /usr/include/c++/13/bits/algorithmfwd.h \
  /usr/include/c++/13/bits/stl_heap.h \
- /usr/include/c++/13/bits/uniform_int_dist.h \
- /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/core/di/ServiceContainer.h \
- /usr/include/c++/13/typeindex /usr/include/c++/13/any \
- /usr/include/c++/13/iostream /usr/include/c++/13/istream \
- /usr/include/c++/13/bits/istream.tcc
+ /usr/include/c++/13/bits/uniform_int_dist.h /usr/include/c++/13/any \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/health/HealthService.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/health/HealthResponse.h \
+ /usr/include/jsoncpp/json/json.h /usr/include/jsoncpp/json/config.h \
+ /usr/include/c++/13/istream /usr/include/c++/13/bits/istream.tcc \
+ /usr/include/c++/13/sstream /usr/include/c++/13/bits/sstream.tcc \
+ /usr/include/jsoncpp/json/allocator.h /usr/include/c++/13/cstring \
+ /usr/include/string.h /usr/include/strings.h \
+ /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
+ /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
+ /usr/include/jsoncpp/json/version.h \
+ /usr/include/jsoncpp/json/json_features.h \
+ /usr/include/jsoncpp/json/forwards.h /usr/include/jsoncpp/json/reader.h \
+ /usr/include/jsoncpp/json/value.h /usr/include/c++/13/map \
+ /usr/include/c++/13/bits/stl_tree.h /usr/include/c++/13/bits/stl_map.h \
+ /usr/include/c++/13/bits/stl_multimap.h /usr/include/c++/13/deque \
+ /usr/include/c++/13/bits/stl_deque.h /usr/include/c++/13/bits/deque.tcc \
+ /usr/include/c++/13/stack /usr/include/c++/13/bits/stl_stack.h \
+ /usr/include/jsoncpp/json/writer.h /usr/include/c++/13/chrono \
+ /usr/include/c++/13/bits/chrono.h /usr/include/c++/13/ratio \
+ /usr/include/c++/13/limits /usr/include/c++/13/ctime \
+ /usr/include/c++/13/bits/parse_numbers.h \
+ /usr/include/c++/13/bits/chrono_io.h /usr/include/c++/13/iomanip \
+ /usr/include/c++/13/locale \
+ /usr/include/c++/13/bits/locale_facets_nonio.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/time_members.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/messages_members.h \
+ /usr/include/libintl.h /usr/include/c++/13/bits/codecvt.h \
+ /usr/include/c++/13/bits/locale_facets_nonio.tcc \
+ /usr/include/c++/13/bits/locale_conv.h \
+ /usr/include/c++/13/bits/quoted_string.h /usr/include/c++/13/format \
+ /usr/include/c++/13/charconv /usr/include/c++/13/span \
+ /usr/include/c++/13/variant \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/health/HealthController.h \
+ /usr/include/drogon/drogon.h /usr/include/trantor/net/EventLoop.h \
+ /usr/include/trantor/utils/NonCopyable.h /usr/include/trantor/exports.h \
+ /usr/include/trantor/utils/Date.h \
+ /usr/include/trantor/utils/LockFreeQueue.h /usr/include/c++/13/atomic \
+ /usr/include/assert.h /usr/include/c++/13/thread \
+ /usr/include/c++/13/stop_token /usr/include/c++/13/bits/std_thread.h \
+ /usr/include/c++/13/semaphore /usr/include/c++/13/bits/semaphore_base.h \
+ /usr/include/c++/13/bits/atomic_timed_wait.h \
+ /usr/include/c++/13/bits/this_thread_sleep.h \
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
+ /usr/include/x86_64-linux-gnu/bits/semaphore.h /usr/include/c++/13/mutex \
+ /usr/include/c++/13/bits/unique_lock.h /usr/include/c++/13/queue \
+ /usr/include/c++/13/bits/stl_queue.h \
+ /usr/include/trantor/net/InetAddress.h /usr/include/netinet/in.h \
+ /usr/include/x86_64-linux-gnu/sys/socket.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
+ /usr/include/x86_64-linux-gnu/bits/socket.h \
+ /usr/include/x86_64-linux-gnu/bits/socket_type.h \
+ /usr/include/x86_64-linux-gnu/bits/sockaddr.h \
+ /usr/include/x86_64-linux-gnu/asm/socket.h \
+ /usr/include/asm-generic/socket.h /usr/include/linux/posix_types.h \
+ /usr/include/linux/stddef.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types.h \
+ /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
+ /usr/include/asm-generic/posix_types.h \
+ /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
+ /usr/include/asm-generic/bitsperlong.h \
+ /usr/include/x86_64-linux-gnu/asm/sockios.h \
+ /usr/include/asm-generic/sockios.h \
+ /usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h \
+ /usr/include/x86_64-linux-gnu/bits/socket2.h \
+ /usr/include/x86_64-linux-gnu/bits/in.h /usr/include/arpa/inet.h \
+ /usr/include/trantor/utils/Logger.h \
+ /usr/include/trantor/utils/LogStream.h /usr/include/c++/13/iostream \
+ /usr/include/drogon/CacheMap.h /usr/include/c++/13/set \
+ /usr/include/c++/13/bits/stl_set.h \
+ /usr/include/c++/13/bits/stl_multiset.h \
+ /usr/include/c++/13/unordered_set \
+ /usr/include/c++/13/bits/unordered_set.h /usr/include/c++/13/future \
+ /usr/include/c++/13/condition_variable \
+ /usr/include/c++/13/bits/atomic_futex.h \
+ /usr/include/drogon/HttpAppFramework.h \
+ /usr/include/drogon/utils/coroutine.h \
+ /usr/include/drogon/utils/optional.h /usr/include/c++/13/algorithm \
+ /usr/include/c++/13/bits/ranges_algo.h \
+ /usr/include/c++/13/pstl/glue_algorithm_defs.h \
+ /usr/include/c++/13/cassert /usr/include/c++/13/coroutine \
+ /usr/include/c++/13/list /usr/include/c++/13/bits/stl_list.h \
+ /usr/include/c++/13/bits/list.tcc /usr/include/drogon/exports.h \
+ /usr/include/drogon/utils/HttpConstraint.h \
+ /usr/include/drogon/HttpTypes.h /usr/include/drogon/utils/string_view.h \
+ /usr/include/drogon/DrObject.h /usr/include/drogon/DrClassMap.h \
+ /usr/include/c++/13/cxxabi.h \
+ /usr/include/x86_64-linux-gnu/c++/13/bits/cxxabi_tweaks.h \
+ /usr/include/drogon/HttpBinder.h \
+ /usr/include/drogon/utils/FunctionTraits.h \
+ /usr/include/drogon/utils/Utilities.h /usr/include/trantor/utils/Funcs.h \
+ /usr/include/trantor/utils/Utilities.h /usr/include/drogon/HttpRequest.h \
+ /usr/include/drogon/Session.h /usr/include/drogon/utils/any.h \
+ /usr/include/drogon/Attribute.h /usr/include/drogon/UploadFile.h \
+ /usr/include/trantor/net/Certificate.h /usr/include/drogon/HttpFilter.h \
+ /usr/include/drogon/drogon_callbacks.h \
+ /usr/include/drogon/HttpResponse.h /usr/include/drogon/Cookie.h \
+ /usr/include/drogon/HttpViewData.h \
+ /usr/include/trantor/utils/MsgBuffer.h /usr/include/drogon/MultiPart.h \
+ /usr/include/drogon/NotFound.h /usr/include/drogon/DrTemplate.h \
+ /usr/include/drogon/DrTemplateBase.h \
+ /usr/include/drogon/plugins/Plugin.h /usr/include/drogon/orm/DbClient.h \
+ /usr/include/drogon/orm/Exception.h /usr/include/drogon/orm/Field.h \
+ /usr/include/drogon/orm/ArrayParser.h /usr/include/c++/13/utility \
+ /usr/include/c++/13/bits/stl_relops.h /usr/include/drogon/orm/Result.h \
+ /usr/include/drogon/orm/Row.h /usr/include/drogon/orm/ResultIterator.h \
+ /usr/include/drogon/orm/RowIterator.h \
+ /usr/include/drogon/orm/SqlBinder.h /usr/include/drogon/orm/DbTypes.h \
+ /usr/include/drogon/orm/FunctionTraits.h \
+ /usr/include/jsoncpp/json/writer.h \
+ /usr/include/drogon/nosql/RedisClient.h \
+ /usr/include/drogon/nosql/RedisResult.h \
+ /usr/include/drogon/nosql/RedisException.h \
+ /usr/include/drogon/nosql/RedisSubscriber.h \
+ /usr/include/trantor/net/Resolver.h /usr/include/drogon/HttpClient.h \
+ /usr/include/drogon/HttpController.h \
+ /usr/include/drogon/HttpSimpleController.h \
+ /usr/include/drogon/plugins/SecureSSLRedirector.h \
+ /usr/include/c++/13/regex /usr/include/c++/13/bitset \
+ /usr/include/c++/13/bits/regex_constants.h \
+ /usr/include/c++/13/bits/regex_error.h \
+ /usr/include/c++/13/bits/regex_automaton.h \
+ /usr/include/c++/13/bits/regex_automaton.tcc \
+ /usr/include/c++/13/bits/regex_scanner.h \
+ /usr/include/c++/13/bits/regex_scanner.tcc \
+ /usr/include/c++/13/bits/regex_compiler.h \
+ /usr/include/c++/13/bits/regex_compiler.tcc \
+ /usr/include/c++/13/bits/regex.h /usr/include/c++/13/bits/regex.tcc \
+ /usr/include/c++/13/bits/regex_executor.h \
+ /usr/include/c++/13/bits/regex_executor.tcc \
+ /usr/include/drogon/plugins/AccessLogger.h \
+ /usr/include/trantor/utils/AsyncFileLogger.h \
+ /usr/include/drogon/plugins/RealIpResolver.h \
+ /usr/include/drogon/plugins/Hodor.h /usr/include/drogon/RateLimiter.h \
+ /usr/include/drogon/plugins/SlashRemover.h \
+ /usr/include/jsoncpp/json/value.h \
+ /usr/include/drogon/plugins/GlobalFilters.h \
+ /usr/include/drogon/IntranetIpFilter.h \
+ /usr/include/drogon/LocalHostFilter.h \
+ /usr/include/drogon/IOThreadStorage.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/repositories/RepositoryService.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/repositories/RepositoryRequest.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/domain/Job.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/domain/IJobRepository.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/logging/Logger.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/repositories/RepositoryController.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/jobs/JobService.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/jobs/JobController.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/api/jobs/JobResponse.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/analysis/InMemoryAnalysisRepository.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/analysis/IAnalysisRepository.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/domain/AnalysisResult.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/analysis/AnalysisService.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/analysis/AnalysisController.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/infrastructure/MySQLJobRepository.h \
+ /usr/include/cppconn/resultset.h /usr/include/cppconn/config.h \
+ /usr/include/inttypes.h /usr/include/cppconn/sqlstring.h \
+ /usr/include/cppconn/build_config.h \
+ /usr/include/cppconn/resultset_metadata.h \
+ /usr/include/cppconn/datatype.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/infrastructure/InMemoryJobRepository.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/database/Database.h \
+ /usr/include/cppconn/connection.h /usr/include/cppconn/warning.h \
+ /usr/include/cppconn/variant.h /usr/include/cppconn/exception.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/worker/JobWorker.h \
+ /home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include/worker/WorkerService.h

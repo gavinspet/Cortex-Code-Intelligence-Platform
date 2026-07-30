@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog
+CXX_INCLUDES = -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/include -I/home/kartick-wsl/projects/Cortex-Code-Intelligence-Platform/backend/src -I/usr/include/jsoncpp -I/usr/include/spdlog -I/usr/include/cppconn
 
-CXX_FLAGS = -std=c++20 -Wall -Wextra -Wpedantic
+CXX_FLAGS = -O3 -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic
 

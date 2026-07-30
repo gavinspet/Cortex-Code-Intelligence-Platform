@@ -129,6 +129,198 @@ cortex/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/build
 .PHONY : cortex/fast
 
+src/analysis/AnalysisController.o: src/analysis/AnalysisController.cpp.o
+.PHONY : src/analysis/AnalysisController.o
+
+# target to build an object file
+src/analysis/AnalysisController.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/analysis/AnalysisController.cpp.o
+.PHONY : src/analysis/AnalysisController.cpp.o
+
+src/analysis/AnalysisController.i: src/analysis/AnalysisController.cpp.i
+.PHONY : src/analysis/AnalysisController.i
+
+# target to preprocess a source file
+src/analysis/AnalysisController.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/analysis/AnalysisController.cpp.i
+.PHONY : src/analysis/AnalysisController.cpp.i
+
+src/analysis/AnalysisController.s: src/analysis/AnalysisController.cpp.s
+.PHONY : src/analysis/AnalysisController.s
+
+# target to generate assembly for a file
+src/analysis/AnalysisController.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/analysis/AnalysisController.cpp.s
+.PHONY : src/analysis/AnalysisController.cpp.s
+
+src/api/health/HealthController.o: src/api/health/HealthController.cpp.o
+.PHONY : src/api/health/HealthController.o
+
+# target to build an object file
+src/api/health/HealthController.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthController.cpp.o
+.PHONY : src/api/health/HealthController.cpp.o
+
+src/api/health/HealthController.i: src/api/health/HealthController.cpp.i
+.PHONY : src/api/health/HealthController.i
+
+# target to preprocess a source file
+src/api/health/HealthController.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthController.cpp.i
+.PHONY : src/api/health/HealthController.cpp.i
+
+src/api/health/HealthController.s: src/api/health/HealthController.cpp.s
+.PHONY : src/api/health/HealthController.s
+
+# target to generate assembly for a file
+src/api/health/HealthController.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthController.cpp.s
+.PHONY : src/api/health/HealthController.cpp.s
+
+src/api/health/HealthResponse.o: src/api/health/HealthResponse.cpp.o
+.PHONY : src/api/health/HealthResponse.o
+
+# target to build an object file
+src/api/health/HealthResponse.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthResponse.cpp.o
+.PHONY : src/api/health/HealthResponse.cpp.o
+
+src/api/health/HealthResponse.i: src/api/health/HealthResponse.cpp.i
+.PHONY : src/api/health/HealthResponse.i
+
+# target to preprocess a source file
+src/api/health/HealthResponse.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthResponse.cpp.i
+.PHONY : src/api/health/HealthResponse.cpp.i
+
+src/api/health/HealthResponse.s: src/api/health/HealthResponse.cpp.s
+.PHONY : src/api/health/HealthResponse.s
+
+# target to generate assembly for a file
+src/api/health/HealthResponse.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthResponse.cpp.s
+.PHONY : src/api/health/HealthResponse.cpp.s
+
+src/api/health/HealthService.o: src/api/health/HealthService.cpp.o
+.PHONY : src/api/health/HealthService.o
+
+# target to build an object file
+src/api/health/HealthService.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthService.cpp.o
+.PHONY : src/api/health/HealthService.cpp.o
+
+src/api/health/HealthService.i: src/api/health/HealthService.cpp.i
+.PHONY : src/api/health/HealthService.i
+
+# target to preprocess a source file
+src/api/health/HealthService.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthService.cpp.i
+.PHONY : src/api/health/HealthService.cpp.i
+
+src/api/health/HealthService.s: src/api/health/HealthService.cpp.s
+.PHONY : src/api/health/HealthService.s
+
+# target to generate assembly for a file
+src/api/health/HealthService.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/health/HealthService.cpp.s
+.PHONY : src/api/health/HealthService.cpp.s
+
+src/api/jobs/JobController.o: src/api/jobs/JobController.cpp.o
+.PHONY : src/api/jobs/JobController.o
+
+# target to build an object file
+src/api/jobs/JobController.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobController.cpp.o
+.PHONY : src/api/jobs/JobController.cpp.o
+
+src/api/jobs/JobController.i: src/api/jobs/JobController.cpp.i
+.PHONY : src/api/jobs/JobController.i
+
+# target to preprocess a source file
+src/api/jobs/JobController.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobController.cpp.i
+.PHONY : src/api/jobs/JobController.cpp.i
+
+src/api/jobs/JobController.s: src/api/jobs/JobController.cpp.s
+.PHONY : src/api/jobs/JobController.s
+
+# target to generate assembly for a file
+src/api/jobs/JobController.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobController.cpp.s
+.PHONY : src/api/jobs/JobController.cpp.s
+
+src/api/jobs/JobService.o: src/api/jobs/JobService.cpp.o
+.PHONY : src/api/jobs/JobService.o
+
+# target to build an object file
+src/api/jobs/JobService.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobService.cpp.o
+.PHONY : src/api/jobs/JobService.cpp.o
+
+src/api/jobs/JobService.i: src/api/jobs/JobService.cpp.i
+.PHONY : src/api/jobs/JobService.i
+
+# target to preprocess a source file
+src/api/jobs/JobService.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobService.cpp.i
+.PHONY : src/api/jobs/JobService.cpp.i
+
+src/api/jobs/JobService.s: src/api/jobs/JobService.cpp.s
+.PHONY : src/api/jobs/JobService.s
+
+# target to generate assembly for a file
+src/api/jobs/JobService.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/jobs/JobService.cpp.s
+.PHONY : src/api/jobs/JobService.cpp.s
+
+src/api/repositories/RepositoryController.o: src/api/repositories/RepositoryController.cpp.o
+.PHONY : src/api/repositories/RepositoryController.o
+
+# target to build an object file
+src/api/repositories/RepositoryController.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryController.cpp.o
+.PHONY : src/api/repositories/RepositoryController.cpp.o
+
+src/api/repositories/RepositoryController.i: src/api/repositories/RepositoryController.cpp.i
+.PHONY : src/api/repositories/RepositoryController.i
+
+# target to preprocess a source file
+src/api/repositories/RepositoryController.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryController.cpp.i
+.PHONY : src/api/repositories/RepositoryController.cpp.i
+
+src/api/repositories/RepositoryController.s: src/api/repositories/RepositoryController.cpp.s
+.PHONY : src/api/repositories/RepositoryController.s
+
+# target to generate assembly for a file
+src/api/repositories/RepositoryController.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryController.cpp.s
+.PHONY : src/api/repositories/RepositoryController.cpp.s
+
+src/api/repositories/RepositoryService.o: src/api/repositories/RepositoryService.cpp.o
+.PHONY : src/api/repositories/RepositoryService.o
+
+# target to build an object file
+src/api/repositories/RepositoryService.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryService.cpp.o
+.PHONY : src/api/repositories/RepositoryService.cpp.o
+
+src/api/repositories/RepositoryService.i: src/api/repositories/RepositoryService.cpp.i
+.PHONY : src/api/repositories/RepositoryService.i
+
+# target to preprocess a source file
+src/api/repositories/RepositoryService.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryService.cpp.i
+.PHONY : src/api/repositories/RepositoryService.cpp.i
+
+src/api/repositories/RepositoryService.s: src/api/repositories/RepositoryService.cpp.s
+.PHONY : src/api/repositories/RepositoryService.s
+
+# target to generate assembly for a file
+src/api/repositories/RepositoryService.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/api/repositories/RepositoryService.cpp.s
+.PHONY : src/api/repositories/RepositoryService.cpp.s
+
 src/app/Application.o: src/app/Application.cpp.o
 .PHONY : src/app/Application.o
 
@@ -176,6 +368,30 @@ src/app/ApplicationFactory.s: src/app/ApplicationFactory.cpp.s
 src/app/ApplicationFactory.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/app/ApplicationFactory.cpp.s
 .PHONY : src/app/ApplicationFactory.cpp.s
+
+src/config/Config.o: src/config/Config.cpp.o
+.PHONY : src/config/Config.o
+
+# target to build an object file
+src/config/Config.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/config/Config.cpp.o
+.PHONY : src/config/Config.cpp.o
+
+src/config/Config.i: src/config/Config.cpp.i
+.PHONY : src/config/Config.i
+
+# target to preprocess a source file
+src/config/Config.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/config/Config.cpp.i
+.PHONY : src/config/Config.cpp.i
+
+src/config/Config.s: src/config/Config.cpp.s
+.PHONY : src/config/Config.s
+
+# target to generate assembly for a file
+src/config/Config.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/config/Config.cpp.s
+.PHONY : src/config/Config.cpp.s
 
 src/config/ConfigurationValidator.o: src/config/ConfigurationValidator.cpp.o
 .PHONY : src/config/ConfigurationValidator.o
@@ -249,53 +465,77 @@ src/core/di/ServiceContainer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/core/di/ServiceContainer.cpp.s
 .PHONY : src/core/di/ServiceContainer.cpp.s
 
-src/logging/LoggerFactory.o: src/logging/LoggerFactory.cpp.o
-.PHONY : src/logging/LoggerFactory.o
+src/database/Database.o: src/database/Database.cpp.o
+.PHONY : src/database/Database.o
 
 # target to build an object file
-src/logging/LoggerFactory.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/LoggerFactory.cpp.o
-.PHONY : src/logging/LoggerFactory.cpp.o
+src/database/Database.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/database/Database.cpp.o
+.PHONY : src/database/Database.cpp.o
 
-src/logging/LoggerFactory.i: src/logging/LoggerFactory.cpp.i
-.PHONY : src/logging/LoggerFactory.i
+src/database/Database.i: src/database/Database.cpp.i
+.PHONY : src/database/Database.i
 
 # target to preprocess a source file
-src/logging/LoggerFactory.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/LoggerFactory.cpp.i
-.PHONY : src/logging/LoggerFactory.cpp.i
+src/database/Database.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/database/Database.cpp.i
+.PHONY : src/database/Database.cpp.i
 
-src/logging/LoggerFactory.s: src/logging/LoggerFactory.cpp.s
-.PHONY : src/logging/LoggerFactory.s
+src/database/Database.s: src/database/Database.cpp.s
+.PHONY : src/database/Database.s
 
 # target to generate assembly for a file
-src/logging/LoggerFactory.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/LoggerFactory.cpp.s
-.PHONY : src/logging/LoggerFactory.cpp.s
+src/database/Database.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/database/Database.cpp.s
+.PHONY : src/database/Database.cpp.s
 
-src/logging/SpdlogLogger.o: src/logging/SpdlogLogger.cpp.o
-.PHONY : src/logging/SpdlogLogger.o
+src/infrastructure/MySQLJobRepository.o: src/infrastructure/MySQLJobRepository.cpp.o
+.PHONY : src/infrastructure/MySQLJobRepository.o
 
 # target to build an object file
-src/logging/SpdlogLogger.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/SpdlogLogger.cpp.o
-.PHONY : src/logging/SpdlogLogger.cpp.o
+src/infrastructure/MySQLJobRepository.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/infrastructure/MySQLJobRepository.cpp.o
+.PHONY : src/infrastructure/MySQLJobRepository.cpp.o
 
-src/logging/SpdlogLogger.i: src/logging/SpdlogLogger.cpp.i
-.PHONY : src/logging/SpdlogLogger.i
+src/infrastructure/MySQLJobRepository.i: src/infrastructure/MySQLJobRepository.cpp.i
+.PHONY : src/infrastructure/MySQLJobRepository.i
 
 # target to preprocess a source file
-src/logging/SpdlogLogger.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/SpdlogLogger.cpp.i
-.PHONY : src/logging/SpdlogLogger.cpp.i
+src/infrastructure/MySQLJobRepository.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/infrastructure/MySQLJobRepository.cpp.i
+.PHONY : src/infrastructure/MySQLJobRepository.cpp.i
 
-src/logging/SpdlogLogger.s: src/logging/SpdlogLogger.cpp.s
-.PHONY : src/logging/SpdlogLogger.s
+src/infrastructure/MySQLJobRepository.s: src/infrastructure/MySQLJobRepository.cpp.s
+.PHONY : src/infrastructure/MySQLJobRepository.s
 
 # target to generate assembly for a file
-src/logging/SpdlogLogger.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/SpdlogLogger.cpp.s
-.PHONY : src/logging/SpdlogLogger.cpp.s
+src/infrastructure/MySQLJobRepository.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/infrastructure/MySQLJobRepository.cpp.s
+.PHONY : src/infrastructure/MySQLJobRepository.cpp.s
+
+src/logging/Logger.o: src/logging/Logger.cpp.o
+.PHONY : src/logging/Logger.o
+
+# target to build an object file
+src/logging/Logger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/Logger.cpp.o
+.PHONY : src/logging/Logger.cpp.o
+
+src/logging/Logger.i: src/logging/Logger.cpp.i
+.PHONY : src/logging/Logger.i
+
+# target to preprocess a source file
+src/logging/Logger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/Logger.cpp.i
+.PHONY : src/logging/Logger.cpp.i
+
+src/logging/Logger.s: src/logging/Logger.cpp.s
+.PHONY : src/logging/Logger.s
+
+# target to generate assembly for a file
+src/logging/Logger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/logging/Logger.cpp.s
+.PHONY : src/logging/Logger.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -321,6 +561,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/worker/JobWorker.o: src/worker/JobWorker.cpp.o
+.PHONY : src/worker/JobWorker.o
+
+# target to build an object file
+src/worker/JobWorker.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/worker/JobWorker.cpp.o
+.PHONY : src/worker/JobWorker.cpp.o
+
+src/worker/JobWorker.i: src/worker/JobWorker.cpp.i
+.PHONY : src/worker/JobWorker.i
+
+# target to preprocess a source file
+src/worker/JobWorker.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/worker/JobWorker.cpp.i
+.PHONY : src/worker/JobWorker.cpp.i
+
+src/worker/JobWorker.s: src/worker/JobWorker.cpp.s
+.PHONY : src/worker/JobWorker.s
+
+# target to generate assembly for a file
+src/worker/JobWorker.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cortex.dir/build.make CMakeFiles/cortex.dir/src/worker/JobWorker.cpp.s
+.PHONY : src/worker/JobWorker.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -330,12 +594,39 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... cortex"
+	@echo "... src/analysis/AnalysisController.o"
+	@echo "... src/analysis/AnalysisController.i"
+	@echo "... src/analysis/AnalysisController.s"
+	@echo "... src/api/health/HealthController.o"
+	@echo "... src/api/health/HealthController.i"
+	@echo "... src/api/health/HealthController.s"
+	@echo "... src/api/health/HealthResponse.o"
+	@echo "... src/api/health/HealthResponse.i"
+	@echo "... src/api/health/HealthResponse.s"
+	@echo "... src/api/health/HealthService.o"
+	@echo "... src/api/health/HealthService.i"
+	@echo "... src/api/health/HealthService.s"
+	@echo "... src/api/jobs/JobController.o"
+	@echo "... src/api/jobs/JobController.i"
+	@echo "... src/api/jobs/JobController.s"
+	@echo "... src/api/jobs/JobService.o"
+	@echo "... src/api/jobs/JobService.i"
+	@echo "... src/api/jobs/JobService.s"
+	@echo "... src/api/repositories/RepositoryController.o"
+	@echo "... src/api/repositories/RepositoryController.i"
+	@echo "... src/api/repositories/RepositoryController.s"
+	@echo "... src/api/repositories/RepositoryService.o"
+	@echo "... src/api/repositories/RepositoryService.i"
+	@echo "... src/api/repositories/RepositoryService.s"
 	@echo "... src/app/Application.o"
 	@echo "... src/app/Application.i"
 	@echo "... src/app/Application.s"
 	@echo "... src/app/ApplicationFactory.o"
 	@echo "... src/app/ApplicationFactory.i"
 	@echo "... src/app/ApplicationFactory.s"
+	@echo "... src/config/Config.o"
+	@echo "... src/config/Config.i"
+	@echo "... src/config/Config.s"
 	@echo "... src/config/ConfigurationValidator.o"
 	@echo "... src/config/ConfigurationValidator.i"
 	@echo "... src/config/ConfigurationValidator.s"
@@ -345,15 +636,21 @@ help:
 	@echo "... src/core/di/ServiceContainer.o"
 	@echo "... src/core/di/ServiceContainer.i"
 	@echo "... src/core/di/ServiceContainer.s"
-	@echo "... src/logging/LoggerFactory.o"
-	@echo "... src/logging/LoggerFactory.i"
-	@echo "... src/logging/LoggerFactory.s"
-	@echo "... src/logging/SpdlogLogger.o"
-	@echo "... src/logging/SpdlogLogger.i"
-	@echo "... src/logging/SpdlogLogger.s"
+	@echo "... src/database/Database.o"
+	@echo "... src/database/Database.i"
+	@echo "... src/database/Database.s"
+	@echo "... src/infrastructure/MySQLJobRepository.o"
+	@echo "... src/infrastructure/MySQLJobRepository.i"
+	@echo "... src/infrastructure/MySQLJobRepository.s"
+	@echo "... src/logging/Logger.o"
+	@echo "... src/logging/Logger.i"
+	@echo "... src/logging/Logger.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/worker/JobWorker.o"
+	@echo "... src/worker/JobWorker.i"
+	@echo "... src/worker/JobWorker.s"
 .PHONY : help
 
 

@@ -1,3 +1,17 @@
+/**
+ * @file Configuration.h
+ * @brief Abstract interface for reading typed application configuration values
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #pragma once
 
 #include <string>

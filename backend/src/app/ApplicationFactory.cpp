@@ -1,7 +1,21 @@
+/**
+ * @file ApplicationFactory.cpp
+ * @brief Reads configuration from disk and constructs a fully-initialized Application instance
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "app/ApplicationFactory.h"
 #include "config/FileConfiguration.h"
 #include "config/ConfigurationValidator.h"
-#include "logging/LoggerFactory.h"
+#include "logging/Logger.h"
 #include <stdexcept>
 #include <iostream>
 
@@ -10,7 +24,7 @@ namespace cortex::app {
 using cortex::config::FileConfiguration;
 using cortex::config::EnhancedConfiguration;
 using cortex::config::ConfigurationValidator;
-using cortex::logging::LoggerFactory;
+using cortex::logging::Logger;
 
 std::unique_ptr<Application> ApplicationFactory::create(const std::string& configFilePath) {
     // ========================================
@@ -46,38 +60,35 @@ std::unique_ptr<Application> ApplicationFactory::create(const std::string& confi
     auto enhanced_config = *enhanced_config_result;
 
     // ========================================
-    // STEP 3: Create logger
+    // STEP 3: Initialize Logger singleton
     // ========================================
     std::cerr << "[Setup] Initializing logger..." << std::endl;
     
-    auto logger_result = LoggerFactory::create("Cortex", base_config);
-    if (!logger_result) {
-        throw std::runtime_error(
-            "Failed to create logger: " + logger_result.error().message());
+    auto log_level = enhanced_config->getString("logging.level", "LOGGING_LEVEL", "info");
+    if (!Logger::initialize("Cortex Code Intelligence Platform", log_level)) {
+        throw std::runtime_error("Failed to initialize logger");
     }
 
-    auto logger = *logger_result;
-
-    // Log configuration loaded
-    logger->info("========================================");
-    logger->info("Cortex Code Intelligence Platform");
-    logger->info("Production Foundation Starting");
-    logger->info("========================================");
-    logger->info("Configuration loaded from: " + configFilePath);
+    // Now we can use Logger singleton
+    Logger::instance().info("========================================");
+    Logger::instance().info("Cortex Code Intelligence Platform");
+    Logger::instance().info("Production Foundation Starting");
+    Logger::instance().info("========================================");
+    Logger::instance().info("Configuration loaded from: " + configFilePath);
 
     // Log resolved configuration
     auto host = enhanced_config->getString("server.host", "SERVER_HOST", "127.0.0.1");
     auto port = enhanced_config->getUIntOrDefault("server.port", 8080);
     auto threads = enhanced_config->getUIntOrDefault("server.threads", 4);
 
-    logger->info("Server configuration: host=" + host + ", port=" + std::to_string(port) + 
-                 ", threads=" + std::to_string(threads));
+    LOG_INFO("Server configuration: host=" + host + ", port=" + std::to_string(port) + 
+             ", threads=" + std::to_string(threads));
 
     // ========================================
     // STEP 4: Create and return Application
     // ========================================
     try {
-        return std::make_unique<Application>(base_config, logger);
+        return std::make_unique<Application>(base_config);
     } catch (const std::exception& e) {
         throw std::runtime_error(
             std::string("Failed to create application: ") + e.what());

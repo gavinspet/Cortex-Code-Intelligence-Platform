@@ -1,3 +1,17 @@
+/**
+ * @file SpdlogLogger.cpp
+ * @brief Constructs the spdlog instance with colorized console and rotating file sinks
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "logging/SpdlogLogger.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>

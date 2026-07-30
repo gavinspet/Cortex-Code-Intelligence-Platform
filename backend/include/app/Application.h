@@ -1,27 +1,69 @@
+/**
+ * @file Application.h
+ * @brief Application orchestrator: dependency injection wiring, Drogon configuration, and lifecycle management
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #pragma once
 
 #include "config/Configuration.h"
-#include "logging/Logger.h"
 #include "core/di/ServiceContainer.h"
+#include "api/health/HealthService.h"
+#include "api/health/HealthController.h"
+#include "api/repositories/RepositoryService.h"
+#include "api/repositories/RepositoryController.h"
+#include "api/jobs/JobService.h"
+#include "api/jobs/JobController.h"
+#include "analysis/InMemoryAnalysisRepository.h"
+#include "analysis/AnalysisService.h"
+#include "analysis/AnalysisController.h"
+#include "infrastructure/MySQLJobRepository.h"
+#include "infrastructure/InMemoryJobRepository.h"
+#include "database/Database.h"
+#include "worker/JobWorker.h"
+#include "worker/WorkerService.h"
+#include <drogon/drogon.h>
 #include <memory>
 #include <string>
 
 namespace cortex::app {
 
+// Forward declarations for friend classes
+class HealthHandler;
+class RepositoryHandler;
+class JobHandler;
+class AnalysisHandler;
+
 using cortex::config::ConfigurationPtr;
-using cortex::logging::LoggerPtr;
 using cortex::core::di::ServiceContainer;
+using cortex::api::health::HealthService;
+using cortex::api::health::HealthController;
+using cortex::api::repositories::RepositoryService;
+using cortex::api::repositories::RepositoryController;
+using cortex::api::jobs::JobService;
+using cortex::api::jobs::JobController;
+using cortex::worker::JobWorker;
+using cortex::worker::WorkerService;
 
 /**
  * @class Application
  * @brief Main application orchestrator with Dependency Injection.
  * 
  * Responsibilities:
- * 1. Build dependency graph
- * 2. Register all services in ServiceContainer
- * 3. Configure Drogon framework
- * 4. Start application
- * 5. Handle graceful shutdown
+ * 1. Initialize logger singleton with application configuration
+ * 2. Build dependency graph
+ * 3. Register all services in ServiceContainer
+ * 4. Configure Drogon framework
+ * 5. Start application
+ * 6. Handle graceful shutdown
  * 
  * Design Pattern: Facade Pattern + Builder Pattern
  * - Facade: Hides Drogon + Config + Logging complexity
@@ -29,7 +71,7 @@ using cortex::core::di::ServiceContainer;
  * 
  * SOLID Principles:
  * - Single Responsibility: Orchestrate startup/shutdown + DI setup
- * - Dependency Inversion: Depends on interfaces (Configuration, Logger)
+ * - Dependency Inversion: Depends on interfaces (Configuration, Logger::instance())
  * - Interface Segregation: Only exposes necessary methods
  * - Open/Closed: New services added via ServiceContainer (extensible)
  * 
@@ -45,6 +87,11 @@ using cortex::core::di::ServiceContainer;
  * - Builder pattern: Application "builds" the dependency graph
  * - Makes unit testing possible (can inject test ServiceContainer)
  * 
+ * Logger Access:
+ * - Uses Logger::instance() (singleton)
+ * - No logger dependency injection needed
+ * - Initialized during ApplicationFactory::create()
+ * 
  * Lifecycle:
  * 1. Create via ApplicationFactory::create()
  * 2. Call buildDependencyGraph() to register all services
@@ -55,11 +102,10 @@ using cortex::core::di::ServiceContainer;
 class Application {
 public:
     /**
-     * Initialize application with dependencies
+     * Initialize application with configuration
      * @param config Configuration provider
-     * @param logger Logger instance
      */
-    Application(ConfigurationPtr config, LoggerPtr logger);
+    explicit Application(ConfigurationPtr config);
 
     ~Application();
 
@@ -84,11 +130,6 @@ public:
     ConfigurationPtr getConfig() const noexcept { return config_; }
 
     /**
-     * Get logger (for dependency injection in future)
-     */
-    LoggerPtr getLogger() const noexcept { return logger_; }
-
-    /**
      * Get the service container for dependency resolution
      * 
      * Used to access registered services:
@@ -111,10 +152,36 @@ public:
         return serviceContainer_; 
     }
 
+    // Friend declaration for HTTP handler
+    friend class HealthHandler;
+    friend class RepositoryHandler;
+    friend class JobHandler;
+    friend class AnalysisHandler;
 private:
     ConfigurationPtr config_;
-    LoggerPtr logger_;
     ServiceContainer serviceContainer_;
+    
+    // Health endpoint services
+    std::shared_ptr<HealthService> healthService_;
+    std::shared_ptr<HealthController> healthController_;
+    
+    // Repository endpoint services
+    std::shared_ptr<cortex::domain::IJobRepository> jobRepository_;
+    std::shared_ptr<RepositoryService> repositoryService_;
+    std::shared_ptr<RepositoryController> repositoryController_;
+    
+    // Job query endpoint services
+    std::shared_ptr<JobService> jobService_;
+    std::shared_ptr<JobController> jobController_;
+
+    // Background worker services
+    std::shared_ptr<JobWorker> jobWorker_;
+    std::shared_ptr<WorkerService> workerService_;
+
+    // Analysis services
+    std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;
+    std::shared_ptr<cortex::analysis::AnalysisService> analysisService_;
+    std::shared_ptr<cortex::analysis::AnalysisController> analysisController_;
 
     /**
      * Build the dependency graph by registering all services
@@ -125,7 +192,8 @@ private:
      * Currently registers:
      * - Configuration (singleton)
      * - Logger (singleton)
-     * - Future: business services as they are created
+     * - HealthService (business logic)
+     * - Future: additional business services as they are created
      */
     void buildDependencyGraph() noexcept;
 
@@ -133,6 +201,14 @@ private:
      * Initialize Drogon framework with settings from configuration
      */
     void initializeDrogon();
+
+    /**
+     * Register HTTP routes and handlers
+     * 
+     * Called after Drogon initialization.
+     * Maps controller methods to HTTP endpoints.
+     */
+    void registerRoutes();
 
     /**
      * Log startup banner

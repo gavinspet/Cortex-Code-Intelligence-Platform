@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake gcc-13 g++-13 \
+            libspdlog-dev libjsoncpp-dev \
+            libmysqlcppconn-dev git
+
+      # Drogon must be built from source — add caching in production CI
+      # - name: Install Drogon
+      #   run: ...
+
+      - name: Configure
+        working-directory: backend
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13
+
+      - name: Build
+        working-directory: backend
+        run: cmake --build build --parallel
+
+      - name: Verify binary exists
+        run: test -f backend/build/bin/cortex && echo "Build successful"

@@ -1,3 +1,17 @@
+/**
+ * @file LoggerFactory.h
+ * @brief Factory for creating and configuring the spdlog-backed Logger instance from application config
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #pragma once
 
 #include "Logger.h"

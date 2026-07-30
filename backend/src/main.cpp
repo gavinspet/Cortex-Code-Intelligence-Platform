@@ -1,3 +1,17 @@
+/**
+ * @file main.cpp
+ * @brief Application entry point — loads configuration and starts the Cortex HTTP server
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "app/ApplicationFactory.h"
 #include <iostream>
 #include <stdexcept>

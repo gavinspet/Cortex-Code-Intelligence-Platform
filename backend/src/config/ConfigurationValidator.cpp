@@ -1,3 +1,17 @@
+/**
+ * @file ConfigurationValidator.cpp
+ * @brief Startup validation logic — checks for required keys and logs missing configuration
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "config/ConfigurationValidator.h"
 #include <cstdlib>
 #include <sstream>

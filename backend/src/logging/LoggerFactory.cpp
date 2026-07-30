@@ -1,3 +1,17 @@
+/**
+ * @file LoggerFactory.cpp
+ * @brief Creates and configures the Logger instance from application configuration
+ *
+ * @project Cortex Code Intelligence Platform
+ *
+ * @author Kartick Kumar Ghosh
+ * @github https://github.com/gavinspet
+ * @email kartick.ghosh.dev@gmail.com
+ *
+ * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
+ * @license MIT
+ */
+
 #include "logging/LoggerFactory.h"
 #include "logging/SpdlogLogger.h"
 #include <algorithm>

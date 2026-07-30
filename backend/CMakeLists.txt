@@ -16,8 +16,28 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# Source Files
-file(GLOB_RECURSE SOURCES "src/*.cpp")
+# Source Files (explicitly listed, excluding deprecated implementations)
+set(SOURCES
+    src/main.cpp
+    src/app/Application.cpp
+    src/app/ApplicationFactory.cpp
+    src/config/Config.cpp
+    src/config/ConfigurationValidator.cpp
+    src/config/FileConfiguration.cpp
+    src/logging/Logger.cpp
+    src/api/health/HealthResponse.cpp
+    src/api/health/HealthService.cpp
+    src/api/health/HealthController.cpp
+    src/api/repositories/RepositoryService.cpp
+    src/api/repositories/RepositoryController.cpp
+    src/api/jobs/JobService.cpp
+    src/api/jobs/JobController.cpp
+    src/analysis/AnalysisController.cpp
+    src/database/Database.cpp
+    src/infrastructure/MySQLJobRepository.cpp
+    src/worker/JobWorker.cpp
+    src/core/di/ServiceContainer.cpp
+)
 
 # Executable Definition
 add_executable(cortex ${SOURCES})
@@ -29,11 +49,11 @@ target_include_directories(cortex PRIVATE
     /usr/include
     /usr/include/jsoncpp
     /usr/include/spdlog
+    /usr/include/cppconn
 )
 
-# Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, and fmt
-target_link_libraries(cortex PRIVATE drogon trantor jsoncpp spdlog fmt)
-
+# Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, fmt, and MySQL Connector/C++
+target_link_libraries(cortex PRIVATE drogon trantor jsoncpp spdlog fmt mysqlcppconn)
 # Compiler Flags (optional, for better warnings)
 if(MSVC)
     target_compile_options(cortex PRIVATE /W4)

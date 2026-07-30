@@ -1,0 +1,40 @@
+# Build artifacts
+backend/build/
+backend/logs/
+
+# Clone workspace (created at runtime)
+/tmp/cortex-workspace/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test artifacts
+test_e2e.sh
+test_get_jobs.sh
+test_worker.sh
+test_multiple_jobs.sh
+/tmp/npm-install.log
+/tmp/cortex.log
