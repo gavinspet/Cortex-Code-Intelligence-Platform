@@ -1,0 +1,12 @@
+build/
+logs/
+.git/
+.github/
+frontend/
+docs/
+docker/
+docker-compose.yml
+*.log
+.DS_Store
+.vscode/
+.idea/

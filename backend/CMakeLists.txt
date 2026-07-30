@@ -52,8 +52,10 @@ target_include_directories(cortex PRIVATE
     /usr/include/cppconn
 )
 
-# Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, fmt, and MySQL Connector/C++
-target_link_libraries(cortex PRIVATE drogon trantor jsoncpp spdlog fmt mysqlcppconn)
+# Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, fmt, MySQL Connector/C++, OpenSSL, ZLIB, UUID, and c-ares
+find_package(OpenSSL REQUIRED)
+find_package(ZLIB REQUIRED)
+target_link_libraries(cortex PRIVATE drogon trantor jsoncpp spdlog fmt mysqlcppconn OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB uuid cares)
 # Compiler Flags (optional, for better warnings)
 if(MSVC)
     target_compile_options(cortex PRIVATE /W4)
