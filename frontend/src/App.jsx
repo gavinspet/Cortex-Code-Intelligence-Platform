@@ -1,6 +1,18 @@
 import { useState, useCallback } from 'react'
 
-const API = import.meta.env.VITE_API_URL || ''  // env var for production, empty for dev proxy
+// Determine API URL based on environment
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) return envUrl
+  // Production: use Render backend
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://cortex-code-intelligence-platform.onrender.com'
+  }
+  // Development: use localhost
+  return 'http://localhost:8080'
+}
+
+const API = getApiUrl()
 
 function LanguageBar({ name, count, total }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
