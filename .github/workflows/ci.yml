@@ -19,11 +19,19 @@ jobs:
           sudo apt-get install -y \
             cmake gcc-13 g++-13 \
             libspdlog-dev libjsoncpp-dev \
-            libmysqlcppconn-dev git
+            libmysqlcppconn-dev git \
+            libssl-dev uuid-dev libc-ares-dev zlib1g-dev \
+            build-essential pkg-config
 
-      # Drogon must be built from source — add caching in production CI
-      # - name: Install Drogon
-      #   run: ...
+      - name: Build and install Drogon
+        run: |
+          git clone https://github.com/drogonframework/drogon.git /tmp/drogon
+          cd /tmp/drogon
+          git submodule update --init
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13
+          make -j$(nproc)
+          sudo make install
 
       - name: Configure
         working-directory: backend
