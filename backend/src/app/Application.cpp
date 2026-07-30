@@ -679,23 +679,34 @@ void Application::registerRoutes() {
 
         Logger::instance().info("Registered route: GET /analysis/{jobId}");
 
-        // Register OPTIONS handler for CORS preflight requests
-        drogon::app().registerHandler(
-            ".*",
-            [](const drogon::HttpRequestPtr& req,
-               std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
-                auto resp = drogon::HttpResponse::newHttpResponse();
-                resp->setStatusCode(drogon::k200OK);
-                resp->addHeader("Access-Control-Allow-Origin", "*");
-                resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
-                resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-                resp->addHeader("Access-Control-Max-Age", "86400");
-                callback(resp);
-            },
-            {drogon::HttpMethod::Options}
-        );
-        
-        Logger::instance().info("Registered route: OPTIONS * (CORS preflight)");
+        // Register OPTIONS handlers for CORS preflight requests on each endpoint
+        auto corsOptionsHandler = [](const drogon::HttpRequestPtr& req,
+                                     std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            auto resp = drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(drogon::k200OK);
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            resp->addHeader("Access-Control-Max-Age", "86400");
+            callback(resp);
+        };
+
+        // OPTIONS for /repositories
+        drogon::app().registerHandler("/repositories", corsOptionsHandler, {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /repositories");
+
+        // OPTIONS for /jobs/{jobId}
+        drogon::app().registerHandler("/jobs/{jobId}", corsOptionsHandler, {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /jobs/{jobId}");
+
+        // OPTIONS for /analysis/{jobId}
+        drogon::app().registerHandler("/analysis/{jobId}", corsOptionsHandler, {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /analysis/{jobId}");
+
+        // OPTIONS for /health
+        drogon::app().registerHandler("/health", corsOptionsHandler, {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /health");
+
         Logger::instance().info("HTTP routes registered successfully");
 
     } catch (const std::exception& e) {
