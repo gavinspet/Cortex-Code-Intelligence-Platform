@@ -28,7 +28,8 @@ RUN git clone https://github.com/drogonframework/drogon.git /drogon && \
     cd /drogon && \
     git submodule update --init && \
     mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13 && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13 \
+        -DBUILD_SQLITE=OFF -DBUILD_POSTGRESQL=OFF && \
     make -j$(nproc) && \
     make install && \
     cd / && rm -rf /drogon
