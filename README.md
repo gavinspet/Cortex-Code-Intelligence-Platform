@@ -36,7 +36,8 @@ Input:  https://github.com/torvalds/linux
 Result: 85,000+ files · 30M+ lines · language breakdown by extension
 ```
 
-![Demo Screenshot](docs/assets/demo-screenshot.png)
+<img width="1447" height="822" alt="image" src="https://github.com/user-attachments/assets/c355b8d6-d33b-4e5b-b924-0e122cfa4b41" />
+
 
 ---
 
