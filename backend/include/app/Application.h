@@ -19,6 +19,8 @@
 #include "github/GitHubClient.h"
 #include "github/GitHubMetadataService.h"
 #include "github/InMemoryGitHubMetadataRepository.h"
+#include "technology/TechnologyService.h"
+#include "technology/InMemoryTechnologyRepository.h"
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -176,6 +178,10 @@ private:
     std::shared_ptr<cortex::github::IGitHubMetadataRepository> metadataRepository_;
     std::shared_ptr<cortex::github::IGitHubClient> gitHubClient_;
     std::shared_ptr<cortex::github::GitHubMetadataService> gitHubMetadataService_;
+
+    // Technology detection services
+    std::shared_ptr<cortex::technology::ITechnologyRepository> technologyRepository_;
+    std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
 
     /**
      * Build the dependency graph by registering all services

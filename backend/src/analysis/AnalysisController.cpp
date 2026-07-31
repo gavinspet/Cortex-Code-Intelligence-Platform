@@ -91,6 +91,54 @@ void AnalysisController::getAnalysis(
             }
         }
 
+        // ── Technology analysis ───────────────────────────────────────────
+        if (technologyService_) {
+            auto tech = technologyService_->getTechnology(jobId);
+            if (tech) {
+                auto serializeItems = [](const std::vector<cortex::technology::TechnologyItem>& vec) {
+                    Json::Value arr(Json::arrayValue);
+                    for (const auto& t : vec) {
+                        Json::Value v;
+                        v["name"]       = t.name;
+                        v["confidence"] = t.confidence;
+                        v["reason"]     = t.reason;
+                        arr.append(v);
+                    }
+                    return arr;
+                };
+
+                Json::Value ta;
+                ta["repositoryType"]     = tech->repositoryType;
+                ta["confidenceScore"]    = tech->confidenceScore;
+                ta["frameworks"]         = serializeItems(tech->frameworks);
+                ta["frontendFrameworks"] = serializeItems(tech->frontendFrameworks);
+                ta["backendFrameworks"]  = serializeItems(tech->backendFrameworks);
+                ta["buildSystems"]       = serializeItems(tech->buildSystems);
+                ta["packageManagers"]    = serializeItems(tech->packageManagers);
+                ta["testingFrameworks"]  = serializeItems(tech->testingFrameworks);
+                ta["ciSystems"]          = serializeItems(tech->ciSystems);
+                ta["containers"]         = serializeItems(tech->containers);
+                ta["cloudProviders"]     = serializeItems(tech->cloudProviders);
+                ta["databases"]          = serializeItems(tech->databases);
+
+                Json::Value doc;
+                doc["readme"]        = tech->documentation.readme;
+                doc["license"]       = tech->documentation.license;
+                doc["changelog"]     = tech->documentation.changelog;
+                doc["contributing"]  = tech->documentation.contributing;
+                doc["security"]      = tech->documentation.security;
+                doc["codeOfConduct"] = tech->documentation.codeOfConduct;
+                ta["documentation"]  = doc;
+
+                data["technologyAnalysis"] = ta;
+                Logger::instance().info(
+                    "Analysis response enriched with technology analysis for job=" + jobId
+                    + " type=" + tech->repositoryType);
+            } else {
+                data["technologyAnalysis"] = Json::Value(Json::nullValue);
+            }
+        }
+
         Json::Value body;
         body["success"] = true;
         body["data"]    = data;

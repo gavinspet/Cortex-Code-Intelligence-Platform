@@ -11,10 +11,12 @@ namespace cortex::worker {
 JobWorker::JobWorker(
     std::shared_ptr<cortex::domain::IJobRepository> repository,
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
-    std::shared_ptr<cortex::github::GitHubMetadataService> metadataService) noexcept
+    std::shared_ptr<cortex::github::GitHubMetadataService> metadataService,
+    std::shared_ptr<cortex::technology::TechnologyService> technologyService) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
-      metadataService_(std::move(metadataService))
+      metadataService_(std::move(metadataService)),
+      technologyService_(std::move(technologyService))
 {
     cortex::logging::Logger::instance().info("JobWorker constructed");
 }
@@ -260,7 +262,18 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
                     + " (★" + std::to_string(metadata->stars) + ")");
             }
         }
-
+        // Run static technology detection on the cloned repository
+        if (technologyService_) {
+            cortex::logging::Logger::instance().info(
+                "Technology detection starting for job " + jobId);
+            auto tech = technologyService_->detectAndStore(jobId, clonePath);
+            if (tech) {
+                cortex::logging::Logger::instance().info(
+                    "Technology detection done for job " + jobId
+                    + ": type=" + tech->repositoryType
+                    + " confidence=" + std::to_string(tech->confidenceScore));
+            }
+        }
     } catch (const std::exception& e) {
         cortex::logging::Logger::instance().error(
             std::string("Error in analyzeRepository: ") + e.what());

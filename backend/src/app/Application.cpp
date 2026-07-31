@@ -224,19 +224,26 @@ void Application::buildDependencyGraph() noexcept {
             gitHubClient_, metadataRepository_);
         Logger::instance().info("Registered GitHubMetadataService");
 
-        // 10. Create JobWorker with metadata service injected
+        // 10. Technology detection service
+        technologyRepository_ = std::make_shared<cortex::technology::InMemoryTechnologyRepository>();
+        technologyService_ = std::make_shared<cortex::technology::TechnologyService>(
+            technologyRepository_);
+        Logger::instance().info("Registered TechnologyService");
+
+        // 11. Create JobWorker with all services injected
         jobWorker_ = std::make_shared<JobWorker>(
-            jobRepository_, analysisRepository_, gitHubMetadataService_);
-        Logger::instance().info("Registered JobWorker (with GitHubMetadataService)");
+            jobRepository_, analysisRepository_,
+            gitHubMetadataService_, technologyService_);
+        Logger::instance().info("Registered JobWorker (with GitHubMetadataService + TechnologyService)");
 
         // 11. Create WorkerService (worker lifecycle management)
         workerService_ = std::make_shared<WorkerService>(jobWorker_);
         Logger::instance().info("Registered WorkerService");
 
-        // 12. Create AnalysisService and AnalysisController (with metadata service)
+        // 12. Create AnalysisService and AnalysisController (with metadata + technology services)
         analysisService_ = std::make_shared<cortex::analysis::AnalysisService>(analysisRepository_);
         analysisController_ = std::make_shared<cortex::analysis::AnalysisController>(
-            analysisService_, gitHubMetadataService_);
+            analysisService_, gitHubMetadataService_, technologyService_);
         Logger::instance().info("Registered AnalysisService and AnalysisController");
         
         // Now set the workerService in repositoryService for notifications

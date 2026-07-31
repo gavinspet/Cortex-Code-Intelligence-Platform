@@ -39,6 +39,7 @@ set(SOURCES
     src/core/di/ServiceContainer.cpp
     src/github/GitHubClient.cpp
     src/github/GitHubMetadataService.cpp
+    src/technology/TechnologyService.cpp
 )
 
 # Executable Definition
