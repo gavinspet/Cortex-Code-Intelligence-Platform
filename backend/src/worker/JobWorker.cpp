@@ -13,12 +13,14 @@ JobWorker::JobWorker(
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService,
     std::shared_ptr<cortex::technology::TechnologyService> technologyService,
-    std::shared_ptr<cortex::health::RepositoryHealthService> healthService) noexcept
+    std::shared_ptr<cortex::health::RepositoryHealthService> healthService,
+    std::shared_ptr<cortex::insight::RepositoryInsightService> insightService) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
       metadataService_(std::move(metadataService)),
       technologyService_(std::move(technologyService)),
-      healthService_(std::move(healthService))
+      healthService_(std::move(healthService)),
+      insightService_(std::move(insightService))
 {
     cortex::logging::Logger::instance().info("JobWorker constructed");
 }
@@ -287,6 +289,37 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
                     "Repository health evaluated for job " + jobId
                     + ": score=" + std::to_string(health->overallScore)
                     + " grade=" + health->grade);
+            }
+        }
+
+        // Generate human-readable repository insights (aggregates all layers)
+        if (insightService_) {
+            // Retrieve already-stored analysis results to pass as context
+            std::optional<cortex::domain::AnalysisResult>         storedAnalysis;
+            std::optional<cortex::github::GitHubMetadata>         storedMeta;
+            std::optional<cortex::technology::TechnologyAnalysis> storedTech;
+            std::optional<cortex::health::RepositoryHealthResult> storedHealth;
+
+            if (analysisRepository_)  storedAnalysis = analysisRepository_->findByJobId(jobId);
+            if (metadataService_)     storedMeta = metadataService_->getMetadata(jobId);
+            if (technologyService_)   storedTech = technologyService_->getTechnology(jobId);
+            if (healthService_)       storedHealth = healthService_->getHealth(jobId);
+
+            cortex::logging::Logger::instance().info(
+                "Repository insight generation starting for job " + jobId);
+
+            auto insights = insightService_->generateAndStore(
+                jobId,
+                storedAnalysis ? &(*storedAnalysis) : nullptr,
+                storedMeta     ? &(*storedMeta)     : nullptr,
+                storedTech     ? &(*storedTech)     : nullptr,
+                storedHealth   ? &(*storedHealth)   : nullptr);
+
+            if (insights) {
+                cortex::logging::Logger::instance().info(
+                    "Repository insights generated for job " + jobId
+                    + ": maturity=" + insights->estimatedMaturity
+                    + " size=" + insights->estimatedProjectSize);
             }
         }
     } catch (const std::exception& e) {

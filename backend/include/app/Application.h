@@ -23,6 +23,8 @@
 #include "technology/InMemoryTechnologyRepository.h"
 #include "health/RepositoryHealthService.h"
 #include "health/InMemoryRepositoryHealthRepository.h"
+#include "insight/RepositoryInsightService.h"
+#include "insight/InMemoryRepositoryInsightRepository.h"
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -188,6 +190,10 @@ private:
     // Repository health services
     std::shared_ptr<cortex::health::IRepositoryHealthRepository> healthRepository_;
     std::shared_ptr<cortex::health::RepositoryHealthService> repoHealthService_;
+
+    // Repository insight services
+    std::shared_ptr<cortex::insight::IRepositoryInsightRepository> insightRepository_;
+    std::shared_ptr<cortex::insight::RepositoryInsightService> insightService_;
 
     /**
      * Build the dependency graph by registering all services

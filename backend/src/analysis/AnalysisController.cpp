@@ -184,6 +184,35 @@ void AnalysisController::getAnalysis(
             }
         }
 
+        // ── Repository insights ───────────────────────────────────────────
+        if (insightService_) {
+            auto insights = insightService_->getInsights(jobId);
+            if (insights) {
+                auto toArr = [](const std::vector<std::string>& v) {
+                    Json::Value a(Json::arrayValue);
+                    for (const auto& s : v) a.append(s);
+                    return a;
+                };
+
+                Json::Value ri;
+                ri["summary"]              = insights->summary;
+                ri["technologyOverview"]   = insights->technologyOverview;
+                ri["qualityOverview"]      = insights->qualityOverview;
+                ri["estimatedProjectSize"] = insights->estimatedProjectSize;
+                ri["estimatedMaturity"]    = insights->estimatedMaturity;
+                ri["estimatedComplexity"]  = insights->estimatedComplexity;
+                ri["strengths"]            = toArr(insights->strengths);
+                ri["risks"]                = toArr(insights->risks);
+                ri["suggestions"]          = toArr(insights->suggestions);
+
+                data["repositoryInsights"] = ri;
+                Logger::instance().info(
+                    "Analysis response enriched with insights for job=" + jobId);
+            } else {
+                data["repositoryInsights"] = Json::Value(Json::nullValue);
+            }
+        }
+
         Json::Value body;
         body["success"] = true;
         body["data"]    = data;
