@@ -214,3 +214,70 @@ code, .mono { font-family: 'SF Mono', Monaco, Consolas, monospace; }
 @media (max-width: 900px) { .footer-content { grid-template-columns: 1fr; gap: 2rem; } }
 @media (max-width: 768px) { .two-col-grid { grid-template-columns: 1fr; } .container { padding: 2rem 1rem; } .form-premium { flex-direction: column; } .header-top { flex-direction: column; align-items: flex-start; } .btn-source { width: 100%; justify-content: center; } .repo-top { flex-direction: column; } .skel-metrics { grid-template-columns: repeat(2, 1fr); } .skel-row { grid-template-columns: 1fr; } .repo-meta-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .metrics-row { grid-template-columns: repeat(2, 1fr); } .health-grid { grid-template-columns: 1fr; } }
+
+/* ─── Executive Summary ───────────────────────────────────────────── */
+.executive-summary {
+  border-left: 3px solid var(--primary);
+  background: linear-gradient(135deg, rgba(99,102,241,.08) 0%, rgba(139,92,246,.04) 100%);
+}
+.exec-header { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 700; color: var(--primary-l); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .85rem; }
+.exec-summary-text { font-size: .95rem; color: var(--text-2); line-height: 1.75; margin-bottom: .65rem; }
+.exec-tech-text { font-size: .85rem; color: var(--text-3); line-height: 1.6; border-top: 1px solid var(--border); padding-top: .65rem; }
+
+/* ─── Project Classification ──────────────────────────────────────── */
+.class-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+.class-item { background: rgba(15,17,23,.6); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; }
+.class-label { display: block; font-size: .72rem; font-weight: 700; color: var(--text-4); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .3rem; }
+.class-value { font-size: 1rem; font-weight: 700; }
+@media (max-width: 600px) { .class-grid { grid-template-columns: 1fr; } }
+
+/* ─── Technology Stack ─────────────────────────────────────────────── */
+.tech-sections { display: flex; flex-direction: column; gap: .2rem; }
+.tech-section-row { display: flex; align-items: flex-start; gap: .75rem; padding: .55rem .4rem; border-radius: 8px; transition: background .2s; }
+.tech-section-row:hover { background: rgba(99,102,241,.04); }
+.tech-cat-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; min-width: 72px; padding-top: .18rem; flex-shrink: 0; }
+.tech-badges-wrap { display: flex; flex-wrap: wrap; gap: .4rem; flex: 1; }
+.tech-badge { font-size: .78rem; font-weight: 600; padding: .22rem .65rem; border-radius: 20px; background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.2); color: var(--primary-l); white-space: nowrap; cursor: default; transition: all .15s; }
+.tech-badge:hover { background: rgba(99,102,241,.18); border-color: var(--primary); }
+
+/* ─── Health Dashboard ─────────────────────────────────────────────── */
+.health-overview { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.score-gauge-wrap { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.gauge-inner { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gauge-score { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+.gauge-label { font-size: .65rem; color: var(--text-4); font-weight: 600; }
+.health-grade-block { display: flex; flex-direction: column; gap: .25rem; }
+.health-grade-big { font-size: 3.5rem; font-weight: 900; line-height: 1; letter-spacing: -.5px; }
+.health-grade-label { font-size: .75rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+.health-cats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+@media (max-width: 900px) { .health-cats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .health-cats-grid { grid-template-columns: 1fr; } }
+.health-cat-card { background: rgba(15,17,23,.7); border: 1px solid var(--border); border-radius: 10px; padding: .85rem 1rem; transition: all .2s; }
+.health-cat-card:hover { border-color: var(--border-h); transform: translateY(-2px); }
+.hcat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
+.hcat-name { font-size: .75rem; font-weight: 600; color: var(--text-2); }
+.hcat-grade { font-size: .75rem; font-weight: 800; }
+.hcat-score { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; }
+.hcat-max { font-size: .75rem; color: var(--text-3); font-weight: 400; }
+.hcat-track { height: 5px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; }
+.hcat-fill { height: 100%; border-radius: 3px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+/* ─── Strengths & Risks ─────────────────────────────────────────────── */
+.insight-list { display: flex; flex-direction: column; gap: .6rem; }
+.insight-item { display: flex; align-items: flex-start; gap: .65rem; padding: .55rem .6rem; border-radius: 8px; transition: background .2s; }
+.insight-item.strength { background: rgba(52,211,153,.04); }
+.insight-item.risk     { background: rgba(251,191,36,.04); }
+.insight-item:hover.strength { background: rgba(52,211,153,.08); }
+.insight-item:hover.risk     { background: rgba(251,191,36,.08); }
+.insight-icon { flex-shrink: 0; margin-top: .1rem; display: flex; }
+.insight-text { font-size: .875rem; color: var(--text-2); line-height: 1.55; }
+
+/* ─── Recommendations ─────────────────────────────────────────────── */
+.rec-list { display: flex; flex-direction: column; gap: .65rem; }
+.rec-card { display: flex; align-items: flex-start; gap: .85rem; background: rgba(99,102,241,.05); border: 1px solid rgba(99,102,241,.12); border-radius: 10px; padding: .85rem 1rem; transition: all .2s; }
+.rec-card:hover { border-color: rgba(99,102,241,.25); background: rgba(99,102,241,.08); }
+.rec-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.25); color: var(--primary-l); font-size: .75rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rec-text { font-size: .875rem; color: var(--text-2); line-height: 1.6; }
+
+/* ─── Misc ─────────────────────────────────────────────────────────── */
+.not-detected { font-size: .82rem; color: var(--text-4); font-style: italic; }
