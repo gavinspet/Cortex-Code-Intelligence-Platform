@@ -1,17 +1,3 @@
-/**
- * @file JobWorker.cpp
- * @brief Background thread loop: git clone, std::filesystem scan, analysis storage, and status updates
- *
- * @project Cortex Code Intelligence Platform
- *
- * @author Kartick Kumar Ghosh
- * @github https://github.com/gavinspet
- * @email kartick.ghosh.dev@gmail.com
- *
- * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
- * @license MIT
- */
-
 #include "worker/JobWorker.h"
 #include "domain/AnalysisResult.h"
 #include <chrono>
@@ -24,9 +10,11 @@ namespace cortex::worker {
 
 JobWorker::JobWorker(
     std::shared_ptr<cortex::domain::IJobRepository> repository,
-    std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository) noexcept
+    std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
+    std::shared_ptr<cortex::github::GitHubMetadataService> metadataService) noexcept
     : repository_(std::move(repository)),
-      analysisRepository_(std::move(analysisRepository))
+      analysisRepository_(std::move(analysisRepository)),
+      metadataService_(std::move(metadataService))
 {
     cortex::logging::Logger::instance().info("JobWorker constructed");
 }
@@ -258,6 +246,19 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
 
         if (analysisRepository_) {
             analysisRepository_->save(result);
+        }
+
+        // Fetch GitHub metadata asynchronously from the worker thread
+        if (metadataService_) {
+            cortex::logging::Logger::instance().info(
+                "Fetching GitHub metadata for job " + jobId);
+            auto metadata = metadataService_->fetchAndStore(jobId, repoUrl);
+            if (metadata) {
+                cortex::logging::Logger::instance().info(
+                    "GitHub metadata stored for job " + jobId
+                    + ": " + metadata->fullName
+                    + " (★" + std::to_string(metadata->stars) + ")");
+            }
         }
 
     } catch (const std::exception& e) {

@@ -217,17 +217,26 @@ void Application::buildDependencyGraph() noexcept {
         analysisRepository_ = std::make_shared<cortex::analysis::InMemoryAnalysisRepository>();
         Logger::instance().info("Registered InMemoryAnalysisRepository");
 
-        // 9. Create JobWorker (background processing)
-        jobWorker_ = std::make_shared<JobWorker>(jobRepository_, analysisRepository_);
-        Logger::instance().info("Registered JobWorker");
-        
-        // 10. Create WorkerService (worker lifecycle management)
+        // 9. GitHub metadata components (needed before JobWorker)
+        metadataRepository_ = std::make_shared<cortex::github::InMemoryGitHubMetadataRepository>();
+        gitHubClient_ = std::make_shared<cortex::github::GitHubClient>();
+        gitHubMetadataService_ = std::make_shared<cortex::github::GitHubMetadataService>(
+            gitHubClient_, metadataRepository_);
+        Logger::instance().info("Registered GitHubMetadataService");
+
+        // 10. Create JobWorker with metadata service injected
+        jobWorker_ = std::make_shared<JobWorker>(
+            jobRepository_, analysisRepository_, gitHubMetadataService_);
+        Logger::instance().info("Registered JobWorker (with GitHubMetadataService)");
+
+        // 11. Create WorkerService (worker lifecycle management)
         workerService_ = std::make_shared<WorkerService>(jobWorker_);
         Logger::instance().info("Registered WorkerService");
 
-        // 11. Create AnalysisService and AnalysisController
+        // 12. Create AnalysisService and AnalysisController (with metadata service)
         analysisService_ = std::make_shared<cortex::analysis::AnalysisService>(analysisRepository_);
-        analysisController_ = std::make_shared<cortex::analysis::AnalysisController>(analysisService_);
+        analysisController_ = std::make_shared<cortex::analysis::AnalysisController>(
+            analysisService_, gitHubMetadataService_);
         Logger::instance().info("Registered AnalysisService and AnalysisController");
         
         // Now set the workerService in repositoryService for notifications

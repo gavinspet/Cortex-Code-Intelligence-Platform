@@ -1,20 +1,7 @@
-/**
- * @file AnalysisController.h
- * @brief HTTP handler for GET /analysis/{jobId} — returns code analysis results for a completed job
- *
- * @project Cortex Code Intelligence Platform
- *
- * @author Kartick Kumar Ghosh
- * @github https://github.com/gavinspet
- * @email kartick.ghosh.dev@gmail.com
- *
- * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
- * @license MIT
- */
-
 #pragma once
 
 #include "analysis/AnalysisService.h"
+#include "github/GitHubMetadataService.h"
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
@@ -25,8 +12,12 @@ namespace cortex::analysis {
 
 class AnalysisController {
 public:
-    explicit AnalysisController(std::shared_ptr<AnalysisService> service) noexcept
-        : service_(std::move(service)) {}
+    explicit AnalysisController(
+        std::shared_ptr<AnalysisService> service,
+        std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr) noexcept
+        : service_(std::move(service))
+        , metadataService_(std::move(metadataService))
+    {}
 
     void getAnalysis(
         const drogon::HttpRequestPtr& req,
@@ -35,6 +26,7 @@ public:
 
 private:
     std::shared_ptr<AnalysisService> service_;
+    std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
 };
 
 } // namespace cortex::analysis

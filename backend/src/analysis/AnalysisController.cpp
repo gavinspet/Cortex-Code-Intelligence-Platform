@@ -1,17 +1,3 @@
-/**
- * @file AnalysisController.cpp
- * @brief Implementation of the analysis results HTTP endpoint — serializes scan data to JSON
- *
- * @project Cortex Code Intelligence Platform
- *
- * @author Kartick Kumar Ghosh
- * @github https://github.com/gavinspet
- * @email kartick.ghosh.dev@gmail.com
- *
- * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
- * @license MIT
- */
-
 #include "analysis/AnalysisController.h"
 #include "logging/Logger.h"
 #include <json/json.h>
@@ -51,22 +37,63 @@ void AnalysisController::getAnalysis(
             return;
         }
 
+        // ── Core analysis data (unchanged contract) ───────────────────────
         Json::Value languages;
         for (const auto& [ext, count] : result->languageDistribution) {
             languages[ext] = count;
         }
 
         Json::Value data;
-        data["jobId"] = result->jobId;
-        data["fileCount"] = result->fileCount;
-        data["dirCount"] = result->dirCount;
-        data["totalLines"] = static_cast<Json::Int64>(result->totalLines);
-        data["languages"] = languages;
-        data["analyzedAt"] = timePointToIso8601(result->analyzedAt);
+        data["jobId"]       = result->jobId;
+        data["fileCount"]   = result->fileCount;
+        data["dirCount"]    = result->dirCount;
+        data["totalLines"]  = static_cast<Json::Int64>(result->totalLines);
+        data["languages"]   = languages;
+        data["analyzedAt"]  = timePointToIso8601(result->analyzedAt);
+
+        // ── GitHub metadata (optional enrichment) ────────────────────────
+        if (metadataService_) {
+            auto meta = metadataService_->getMetadata(jobId);
+            if (meta) {
+                Json::Value m;
+                m["name"]             = meta->name;
+                m["fullName"]         = meta->fullName;
+                m["owner"]            = meta->owner;
+                m["ownerAvatarUrl"]   = meta->ownerAvatarUrl;
+                m["description"]      = meta->description;
+                m["homepage"]         = meta->homepage;
+                m["defaultBranch"]    = meta->defaultBranch;
+                m["primaryLanguage"]  = meta->primaryLanguage;
+                m["visibility"]       = meta->visibility;
+                m["stars"]            = meta->stars;
+                m["forks"]            = meta->forks;
+                m["watchers"]         = meta->watchers;
+                m["openIssues"]       = meta->openIssues;
+                m["sizeKb"]           = static_cast<Json::Int64>(meta->sizeKb);
+                m["archived"]         = meta->archived;
+                m["fork"]             = meta->fork;
+                m["license"]          = meta->license;
+                m["createdAt"]        = meta->createdAt;
+                m["updatedAt"]        = meta->updatedAt;
+                m["pushedAt"]         = meta->pushedAt;
+
+                Json::Value topics(Json::arrayValue);
+                for (const auto& t : meta->topics) topics.append(t);
+                m["topics"] = topics;
+
+                data["metadata"] = m;
+                Logger::instance().info(
+                    "Analysis response enriched with GitHub metadata for job=" + jobId);
+            } else {
+                data["metadata"] = Json::Value(Json::nullValue);
+                Logger::instance().info(
+                    "No GitHub metadata available for job=" + jobId);
+            }
+        }
 
         Json::Value body;
         body["success"] = true;
-        body["data"] = data;
+        body["data"]    = data;
 
         auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
         resp->setStatusCode(drogon::k200OK);

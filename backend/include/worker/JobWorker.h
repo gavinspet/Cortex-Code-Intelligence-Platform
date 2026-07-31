@@ -1,21 +1,8 @@
-/**
- * @file JobWorker.h
- * @brief Background worker thread that clones repositories and performs static code analysis
- *
- * @project Cortex Code Intelligence Platform
- *
- * @author Kartick Kumar Ghosh
- * @github https://github.com/gavinspet
- * @email kartick.ghosh.dev@gmail.com
- *
- * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
- * @license MIT
- */
-
 #pragma once
 
 #include "domain/IJobRepository.h"
 #include "analysis/IAnalysisRepository.h"
+#include "github/GitHubMetadataService.h"
 #include "logging/Logger.h"
 #include <thread>
 #include <condition_variable>
@@ -45,7 +32,8 @@ public:
      */
     explicit JobWorker(
         std::shared_ptr<cortex::domain::IJobRepository> repository,
-        std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository) noexcept;
+        std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
+        std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr) noexcept;
 
     /**
      * Destructor - ensures worker thread is stopped
@@ -107,6 +95,7 @@ private:
     // Dependencies (injected)
     std::shared_ptr<cortex::domain::IJobRepository> repository_;
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;
+    std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
 
     // Thread management
     std::unique_ptr<std::thread> worker_thread_;

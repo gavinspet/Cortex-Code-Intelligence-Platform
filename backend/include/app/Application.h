@@ -1,17 +1,3 @@
-/**
- * @file Application.h
- * @brief Application orchestrator: dependency injection wiring, Drogon configuration, and lifecycle management
- *
- * @project Cortex Code Intelligence Platform
- *
- * @author Kartick Kumar Ghosh
- * @github https://github.com/gavinspet
- * @email kartick.ghosh.dev@gmail.com
- *
- * @copyright Copyright (c) 2026 Kartick Kumar Ghosh
- * @license MIT
- */
-
 #pragma once
 
 #include "config/Configuration.h"
@@ -30,6 +16,9 @@
 #include "database/Database.h"
 #include "worker/JobWorker.h"
 #include "worker/WorkerService.h"
+#include "github/GitHubClient.h"
+#include "github/GitHubMetadataService.h"
+#include "github/InMemoryGitHubMetadataRepository.h"
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -182,6 +171,11 @@ private:
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;
     std::shared_ptr<cortex::analysis::AnalysisService> analysisService_;
     std::shared_ptr<cortex::analysis::AnalysisController> analysisController_;
+
+    // GitHub metadata services
+    std::shared_ptr<cortex::github::IGitHubMetadataRepository> metadataRepository_;
+    std::shared_ptr<cortex::github::IGitHubClient> gitHubClient_;
+    std::shared_ptr<cortex::github::GitHubMetadataService> gitHubMetadataService_;
 
     /**
      * Build the dependency graph by registering all services

@@ -37,6 +37,8 @@ set(SOURCES
     src/infrastructure/MySQLJobRepository.cpp
     src/worker/JobWorker.cpp
     src/core/di/ServiceContainer.cpp
+    src/github/GitHubClient.cpp
+    src/github/GitHubMetadataService.cpp
 )
 
 # Executable Definition
