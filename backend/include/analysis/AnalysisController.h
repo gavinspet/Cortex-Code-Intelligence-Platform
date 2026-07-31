@@ -3,6 +3,7 @@
 #include "analysis/AnalysisService.h"
 #include "github/GitHubMetadataService.h"
 #include "technology/TechnologyService.h"
+#include "health/RepositoryHealthService.h"
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
@@ -16,10 +17,12 @@ public:
     explicit AnalysisController(
         std::shared_ptr<AnalysisService> service,
         std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr,
-        std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr) noexcept
+        std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr,
+        std::shared_ptr<cortex::health::RepositoryHealthService> healthService = nullptr) noexcept
         : service_(std::move(service))
         , metadataService_(std::move(metadataService))
         , technologyService_(std::move(technologyService))
+        , healthService_(std::move(healthService))
     {}
 
     void getAnalysis(
@@ -31,6 +34,7 @@ private:
     std::shared_ptr<AnalysisService> service_;
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
+    std::shared_ptr<cortex::health::RepositoryHealthService> healthService_;
 };
 
 } // namespace cortex::analysis

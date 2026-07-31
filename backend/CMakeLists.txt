@@ -40,6 +40,7 @@ set(SOURCES
     src/github/GitHubClient.cpp
     src/github/GitHubMetadataService.cpp
     src/technology/TechnologyService.cpp
+    src/health/RepositoryHealthService.cpp
 )
 
 # Executable Definition

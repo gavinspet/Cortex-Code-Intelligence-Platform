@@ -12,11 +12,13 @@ JobWorker::JobWorker(
     std::shared_ptr<cortex::domain::IJobRepository> repository,
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService,
-    std::shared_ptr<cortex::technology::TechnologyService> technologyService) noexcept
+    std::shared_ptr<cortex::technology::TechnologyService> technologyService,
+    std::shared_ptr<cortex::health::RepositoryHealthService> healthService) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
       metadataService_(std::move(metadataService)),
-      technologyService_(std::move(technologyService))
+      technologyService_(std::move(technologyService)),
+      healthService_(std::move(healthService))
 {
     cortex::logging::Logger::instance().info("JobWorker constructed");
 }
@@ -272,6 +274,19 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
                     "Technology detection done for job " + jobId
                     + ": type=" + tech->repositoryType
                     + " confidence=" + std::to_string(tech->confidenceScore));
+            }
+        }
+
+        // Evaluate repository health and quality score
+        if (healthService_) {
+            cortex::logging::Logger::instance().info(
+                "Repository health evaluation starting for job " + jobId);
+            auto health = healthService_->evaluateAndStore(jobId, clonePath);
+            if (health) {
+                cortex::logging::Logger::instance().info(
+                    "Repository health evaluated for job " + jobId
+                    + ": score=" + std::to_string(health->overallScore)
+                    + " grade=" + health->grade);
             }
         }
     } catch (const std::exception& e) {

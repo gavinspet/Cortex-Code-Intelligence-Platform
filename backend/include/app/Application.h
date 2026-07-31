@@ -21,6 +21,8 @@
 #include "github/InMemoryGitHubMetadataRepository.h"
 #include "technology/TechnologyService.h"
 #include "technology/InMemoryTechnologyRepository.h"
+#include "health/RepositoryHealthService.h"
+#include "health/InMemoryRepositoryHealthRepository.h"
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -182,6 +184,10 @@ private:
     // Technology detection services
     std::shared_ptr<cortex::technology::ITechnologyRepository> technologyRepository_;
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
+
+    // Repository health services
+    std::shared_ptr<cortex::health::IRepositoryHealthRepository> healthRepository_;
+    std::shared_ptr<cortex::health::RepositoryHealthService> repoHealthService_;
 
     /**
      * Build the dependency graph by registering all services

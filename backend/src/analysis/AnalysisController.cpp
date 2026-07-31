@@ -139,6 +139,51 @@ void AnalysisController::getAnalysis(
             }
         }
 
+        // ── Repository health ─────────────────────────────────────────────
+        if (healthService_) {
+            auto health = healthService_->getHealth(jobId);
+            if (health) {
+                auto serializeCat = [](const cortex::health::CategoryScore& cs) {
+                    Json::Value v;
+                    v["score"]    = cs.score;
+                    v["maxScore"] = cs.maxScore;
+                    v["grade"]    = cs.grade;
+                    return v;
+                };
+
+                Json::Value cats;
+                cats["documentation"]   = serializeCat(health->categories.documentation);
+                cats["testing"]         = serializeCat(health->categories.testing);
+                cats["ciCd"]            = serializeCat(health->categories.ciCd);
+                cats["security"]        = serializeCat(health->categories.security);
+                cats["maintainability"] = serializeCat(health->categories.maintainability);
+                cats["configuration"]   = serializeCat(health->categories.configuration);
+                cats["projectStructure"]= serializeCat(health->categories.projectStructure);
+
+                auto toJsonArr = [](const std::vector<std::string>& v) {
+                    Json::Value a(Json::arrayValue);
+                    for (const auto& s : v) a.append(s);
+                    return a;
+                };
+
+                Json::Value rh;
+                rh["overallScore"]    = health->overallScore;
+                rh["grade"]           = health->grade;
+                rh["categories"]      = cats;
+                rh["strengths"]       = toJsonArr(health->strengths);
+                rh["warnings"]        = toJsonArr(health->warnings);
+                rh["recommendations"] = toJsonArr(health->recommendations);
+
+                data["repositoryHealth"] = rh;
+                Logger::instance().info(
+                    "Analysis response enriched with health score for job=" + jobId
+                    + " score=" + std::to_string(health->overallScore)
+                    + " grade=" + health->grade);
+            } else {
+                data["repositoryHealth"] = Json::Value(Json::nullValue);
+            }
+        }
+
         Json::Value body;
         body["success"] = true;
         body["data"]    = data;

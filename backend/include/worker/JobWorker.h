@@ -4,6 +4,7 @@
 #include "analysis/IAnalysisRepository.h"
 #include "github/GitHubMetadataService.h"
 #include "technology/TechnologyService.h"
+#include "health/RepositoryHealthService.h"
 #include "logging/Logger.h"
 #include <thread>
 #include <condition_variable>
@@ -35,7 +36,8 @@ public:
         std::shared_ptr<cortex::domain::IJobRepository> repository,
         std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
         std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr,
-        std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr) noexcept;
+        std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr,
+        std::shared_ptr<cortex::health::RepositoryHealthService> healthService = nullptr) noexcept;
 
     /**
      * Destructor - ensures worker thread is stopped
@@ -99,6 +101,7 @@ private:
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
+    std::shared_ptr<cortex::health::RepositoryHealthService> healthService_;
 
     // Thread management
     std::unique_ptr<std::thread> worker_thread_;
