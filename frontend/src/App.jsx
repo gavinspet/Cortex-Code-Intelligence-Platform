@@ -13,7 +13,7 @@ const API = getApiUrl()
 
 const PROFILE_LINKS = {
   github: 'https://github.com/gavinspet',
-  linkedin: 'https://linkedin.com',
+  linkedin: 'https://www.linkedin.com/in/kartick-kumar-ghosh-779679190/',
 }
 
 const PROJECT_LINKS = {

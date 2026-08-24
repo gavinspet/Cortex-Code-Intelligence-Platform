@@ -72,6 +72,8 @@ a {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.92)),
@@ -79,6 +81,7 @@ a {
 }
 
 .page {
+  flex: 1;
   width: min(1160px, calc(100vw - 36px));
   margin: 0 auto;
   padding: 26px 0 56px;
@@ -809,22 +812,32 @@ a {
 }
 
 .footer {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #d7e3fb;
   text-align: center;
-  padding: 24px 16px 30px;
-  color: var(--text-soft);
+  padding: 32px 16px 36px;
+  color: #dce7ff;
   font-size: 14px;
-  background: linear-gradient(180deg, rgba(248, 250, 253, 0.55), rgba(255, 255, 255, 0.95));
+  margin-top: auto;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(126, 87, 194, 0.32), transparent 34%),
+    radial-gradient(circle at 88% 20%, rgba(0, 121, 107, 0.24), transparent 36%),
+    linear-gradient(135deg, #0b1b3f 0%, #132f6b 54%, #21488f 100%);
+  box-shadow: 0 -8px 26px rgba(9, 30, 66, 0.22);
 }
 
 .footer-title {
   margin: 0;
-  color: var(--text);
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .footer p {
   margin: 7px 0 0;
+}
+
+.footer p:not(.footer-title) {
+  color: #d6e2ff;
 }
 
 .footer-links {
@@ -835,11 +848,13 @@ a {
 
 .footer-links a {
   text-decoration: none;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .footer-links a:hover,
 .footer-links a:focus-visible {
-  color: var(--blue);
+  color: #9ed0ff;
   outline: none;
 }
 
