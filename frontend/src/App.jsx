@@ -226,10 +226,10 @@ function ExecutiveSummary({ analysis, submittedUrl }) {
 function MetricsReadout({ analysis }) {
   const languageCount = Object.keys(analysis.languages || {}).length
   const items = [
-    { label: 'Files', value: analysis.fileCount, icon: '▦', tone: 'tone-blue' },
-    { label: 'Dirs', value: analysis.dirCount, icon: '◫', tone: 'tone-violet' },
-    { label: 'Lines', value: analysis.totalLines, icon: '≣', tone: 'tone-teal' },
-    { label: 'Languages', value: languageCount, icon: '◎', tone: 'tone-amber' },
+    { label: 'Files', value: analysis.fileCount, icon: '📄', tone: 'tone-blue' },
+    { label: 'Dirs', value: analysis.dirCount, icon: '📁', tone: 'tone-violet' },
+    { label: 'Lines', value: analysis.totalLines, icon: '📏', tone: 'tone-teal' },
+    { label: 'Languages', value: languageCount, icon: '🌐', tone: 'tone-amber' },
   ]
 
   return (
@@ -371,40 +371,40 @@ function EngineeringInsights({ insights }) {
 
   return (
     <section id="insights" className="section">
-      <h3><span className="section-icon icon-insights" aria-hidden="true">◇</span>Engineering Insights</h3>
+      <h3><span className="section-icon icon-insights" aria-hidden="true">🧠</span>Engineering Insights</h3>
 
-      <div className="insight-text-block">
-        <MicroLabel>Summary</MicroLabel>
+      <div className="insight-text-block insight-summary">
+        <MicroLabel>🧾 Summary</MicroLabel>
         <p>{insights.summary || 'No summary available.'}</p>
       </div>
 
-      <div className="insight-text-block">
-        <MicroLabel>Technology</MicroLabel>
+      <div className="insight-text-block insight-technology">
+        <MicroLabel>⚙️ Technology</MicroLabel>
         <p>{insights.technologyOverview || 'No technology overview available.'}</p>
       </div>
 
-      <div className="insight-text-block">
-        <MicroLabel>Quality</MicroLabel>
+      <div className="insight-text-block insight-quality">
+        <MicroLabel>📊 Quality</MicroLabel>
         <p>{insights.qualityOverview || 'No quality overview available.'}</p>
       </div>
 
       <div className="insight-grid">
         <div>
-          <MicroLabel>Strengths</MicroLabel>
+          <MicroLabel>✅ Strengths</MicroLabel>
           <ul>
-            {(insights.strengths || []).map((x, i) => <li key={`is-${i}`}>✓ {x}</li>)}
+            {(insights.strengths || []).map((x, i) => <li key={`is-${i}`}>✅ {x}</li>)}
           </ul>
         </div>
         <div>
-          <MicroLabel>Risks</MicroLabel>
+          <MicroLabel>⚠️ Risks</MicroLabel>
           <ul>
-            {(insights.risks || []).map((x, i) => <li key={`ir-${i}`}>! {x}</li>)}
+            {(insights.risks || []).map((x, i) => <li key={`ir-${i}`}>⚠️ {x}</li>)}
           </ul>
         </div>
         <div>
-          <MicroLabel>Recommendations</MicroLabel>
+          <MicroLabel>💡 Recommendations</MicroLabel>
           <ul>
-            {(insights.suggestions || []).map((x, i) => <li key={`ic-${i}`}>→ {x}</li>)}
+            {(insights.suggestions || []).map((x, i) => <li key={`ic-${i}`}>💡 {x}</li>)}
           </ul>
         </div>
       </div>

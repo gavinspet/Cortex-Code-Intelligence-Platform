@@ -434,6 +434,9 @@ a {
 
 #overview {
   border-top: 3px solid var(--blue);
+  background:
+    radial-gradient(circle at 96% 8%, rgba(126, 87, 194, 0.12), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
 }
 
 #technology {
@@ -489,6 +492,26 @@ a {
   padding: 10px;
 }
 
+.classification-grid > div:nth-child(1) {
+  border-color: #d2e3fc;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+}
+
+.classification-grid > div:nth-child(2) {
+  border-color: #e2d5f7;
+  background: linear-gradient(180deg, #fbf8ff 0%, #f4edff 100%);
+}
+
+.classification-grid > div:nth-child(3) {
+  border-color: #c7e6e0;
+  background: linear-gradient(180deg, #f7fffc 0%, #ebfaf5 100%);
+}
+
+.classification-grid > div:nth-child(4) {
+  border-color: #f6ddb8;
+  background: linear-gradient(180deg, #fffaf1 0%, #fff3de 100%);
+}
+
 .classification-grid p {
   margin: 6px 0 0;
 }
@@ -539,15 +562,35 @@ a {
 .metric-icon {
   margin: 0;
   color: var(--text-muted);
-  font-size: 14px;
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  border-radius: 7px;
+  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.metric-item.tone-blue .metric-icon {
+  background: #e8f0fe;
+  border-color: #c7d9fd;
+}
+
+.metric-item.tone-violet .metric-icon {
+  background: #f1ecfb;
+  border-color: #ddcef7;
+}
+
+.metric-item.tone-teal .metric-icon {
+  background: #e6f4f1;
+  border-color: #bee6de;
+}
+
+.metric-item.tone-amber .metric-icon {
+  background: #fff4e5;
+  border-color: #f5d8aa;
 }
 
 .metric-value {
@@ -749,6 +792,27 @@ a {
   margin: 6px 0 0;
   color: var(--text-soft);
   line-height: 1.5;
+}
+
+.insight-text-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.insight-summary {
+  border-color: #cde0fd;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+}
+
+.insight-technology {
+  border-color: #d8c9f6;
+  background: linear-gradient(180deg, #faf7ff 0%, #f2eaff 100%);
+}
+
+.insight-quality {
+  border-color: #bfe7de;
+  background: linear-gradient(180deg, #f7fffc 0%, #eaf9f4 100%);
 }
 
 .insight-grid {
