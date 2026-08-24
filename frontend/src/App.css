@@ -814,6 +814,9 @@ a {
 
 .footer {
   border-top: 1px solid #d7e3fb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: 32px 16px 36px;
   color: #dce7ff;
@@ -835,9 +838,10 @@ a {
 
 .footer-desc {
   margin: 8px auto 0;
-  max-width: 78ch;
+  max-width: min(78ch, 100%);
   line-height: 1.5;
   text-align: center;
+  text-wrap: balance;
 }
 
 .footer-copy {
@@ -860,6 +864,7 @@ a {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+  width: 100%;
 }
 
 .footer-links a {
