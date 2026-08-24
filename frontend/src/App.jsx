@@ -472,15 +472,35 @@ function AnalysisDashboard({ analysis, submittedUrl }) {
 function Footer() {
   return (
     <footer className="footer">
-      <p className="footer-title">Cortex Code Intelligence Platform</p>
-      <p>Built by Kartick Kumar Ghosh</p>
-      <p>C++ Backend · Systems Engineering · Distributed Systems</p>
-      <p className="footer-links">
-        <a href={PROFILE_LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
-        <span>·</span>
-        <a href={PROFILE_LINKS.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-      </p>
-      <p>© 2026 Kartick Kumar Ghosh</p>
+      <div className="footer-inner">
+        <div className="footer-block">
+          <p className="footer-title">Cortex Code Intelligence Platform</p>
+          <p className="footer-desc">Analyze public repositories with automated technology detection, health scoring, and actionable engineering insights.</p>
+          <p className="footer-copy">© 2026 Kartick Kumar Ghosh</p>
+        </div>
+
+        <div className="footer-block">
+          <p className="footer-label">Platform</p>
+          <p>Static code analysis</p>
+          <p>Repository health intelligence</p>
+          <p>Architecture and quality signals</p>
+        </div>
+
+        <div className="footer-block">
+          <p className="footer-label">Links</p>
+          <p className="footer-links">
+            <a href={PROJECT_LINKS.repo} target="_blank" rel="noopener noreferrer">Project Repo</a>
+          </p>
+          <p className="footer-links">
+            <a href={PROJECT_LINKS.health} target="_blank" rel="noopener noreferrer">API Health</a>
+          </p>
+          <p className="footer-links">
+            <a href={PROFILE_LINKS.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+            <span>·</span>
+            <a href={PROFILE_LINKS.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          </p>
+        </div>
+      </div>
     </footer>
   )
 }
@@ -564,7 +584,6 @@ export default function App() {
   return (
     <div className="app-shell">
       <main className="page" role="main">
-        <DevHeader />
         <Hero url={url} setUrl={setUrl} phase={phase} onSubmit={handleSubmit} />
         <SectionNav visible={phase === 'done' && !!analysis} />
         <AnalysisJobStatus phase={phase} statusMsg={statusMsg} jobStatus={jobStatus} />
