@@ -412,18 +412,28 @@ function EngineeringInsights({ insights }) {
   )
 }
 
-function GithubMetadata({ meta }) {
-  if (!meta) return null
-  const rows = [
-    ['Stars', meta.stars],
-    ['Forks', meta.forks],
-    ['Open Issues', meta.openIssues],
-    ['Primary Language', meta.primaryLanguage || 'Unknown'],
-    ['License', meta.license || 'Unknown'],
-    ['Created', meta.createdAt ? new Date(meta.createdAt).toLocaleDateString() : 'Unknown'],
-    ['Updated', meta.updatedAt ? new Date(meta.updatedAt).toLocaleDateString() : 'Unknown'],
-    ['Topics', (meta.topics || []).length > 0 ? meta.topics.join(', ') : 'None'],
-  ]
+function GithubMetadata({ meta, submittedUrl }) {
+  const parsed = parseRepoFromUrl(submittedUrl)
+  const repoLink = meta?.fullName
+    ? `https://github.com/${meta.fullName}`
+    : parsed?.githubLink || submittedUrl || null
+
+  const rows = meta
+    ? [
+      ['Repository Link', repoLink || 'Unavailable'],
+      ['Stars', meta.stars],
+      ['Forks', meta.forks],
+      ['Open Issues', meta.openIssues],
+      ['Primary Language', meta.primaryLanguage || 'Unknown'],
+      ['License', meta.license || 'Unknown'],
+      ['Created', meta.createdAt ? new Date(meta.createdAt).toLocaleDateString() : 'Unknown'],
+      ['Updated', meta.updatedAt ? new Date(meta.updatedAt).toLocaleDateString() : 'Unknown'],
+      ['Topics', (meta.topics || []).length > 0 ? meta.topics.join(', ') : 'None'],
+    ]
+    : [
+      ['Repository Link', repoLink || 'Unavailable'],
+      ['Status', 'GitHub metadata unavailable for this run'],
+    ]
 
   return (
     <section id="github" className="section">
@@ -432,7 +442,11 @@ function GithubMetadata({ meta }) {
         {rows.map(([k, v]) => (
           <div className="metadata-row" key={k}>
             <span>{k}</span>
-            <span className="metadata-value">{typeof v === 'number' ? toLocale(v) : v}</span>
+            {k === 'Repository Link' && typeof v === 'string' && v.startsWith('http') ? (
+              <a className="metadata-value metadata-link" href={v} target="_blank" rel="noopener noreferrer">{v}</a>
+            ) : (
+              <span className="metadata-value">{typeof v === 'number' ? toLocale(v) : v}</span>
+            )}
           </div>
         ))}
       </div>
@@ -464,7 +478,7 @@ function AnalysisDashboard({ analysis, submittedUrl }) {
       <LanguageDistribution languages={analysis.languages} />
       {analysis.repositoryHealth ? <RepositoryHealth health={analysis.repositoryHealth} /> : null}
       {analysis.repositoryInsights ? <EngineeringInsights insights={analysis.repositoryInsights} /> : null}
-      {analysis.metadata ? <GithubMetadata meta={analysis.metadata} /> : null}
+      <GithubMetadata meta={analysis.metadata} submittedUrl={submittedUrl} />
     </div>
   )
 }

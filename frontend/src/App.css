@@ -876,6 +876,18 @@ a {
   color: var(--text-soft);
 }
 
+.metadata-link {
+  color: var(--blue-strong);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.metadata-link:hover,
+.metadata-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
 .footer {
   border-top: 1px solid #d7e3fb;
   display: flex;
