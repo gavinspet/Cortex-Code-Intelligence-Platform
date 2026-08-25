@@ -180,10 +180,20 @@ function AnalysisJobStatus({ phase, statusMsg, jobStatus }) {
     { label: 'GitHub metadata fetched', done: s === 'COMPLETED' },
     { label: 'Evaluating repository health', done: s === 'COMPLETED', active: s === 'RUNNING' },
   ]
+  const doneCount = steps.filter((step) => step.done).length
+  const progressPct = phase === 'done' ? 100 : Math.max(8, Math.round((doneCount / steps.length) * 100))
 
   return (
     <section className={`live-status ${phase === 'error' ? 'error' : ''}`} aria-live="polite">
-      <p className="live-title">{phase === 'done' ? 'Analysis complete' : 'Analyzing repository...'}</p>
+      <div className="live-title-row">
+        <p className="live-title">{phase === 'done' ? 'Analysis complete' : 'Analyzing repository...'}</p>
+        <p className="live-progress-value">{progressPct}%</p>
+      </div>
+      {phase !== 'error' && (
+        <div className="live-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPct} aria-label="Analysis progress">
+          <div className="live-progress-fill" style={{ width: `${progressPct}%` }} />
+        </div>
+      )}
       {phase !== 'error' && (
         <ul>
           {steps.map((step) => (

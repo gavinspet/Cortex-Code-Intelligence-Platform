@@ -323,6 +323,36 @@ a {
   font-weight: 600;
 }
 
+.live-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.live-progress-value {
+  margin: 0;
+  color: var(--blue-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-progress {
+  margin-top: 8px;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e7edf8;
+  overflow: hidden;
+}
+
+.live-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blue) 0%, var(--violet) 60%, var(--teal) 100%);
+  transition: width 220ms ease;
+}
+
 .live-status ul {
   margin: 10px 0 0;
   padding: 0;
