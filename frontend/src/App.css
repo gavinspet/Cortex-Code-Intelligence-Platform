@@ -214,110 +214,6 @@ a {
   font-size: 17px;
 }
 
-.world-clock {
-  width: min(240px, 100%);
-  margin-left: auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  padding: 10px 10px 9px;
-  background: linear-gradient(160deg, #091a42 0%, #102d69 55%, #153b82 100%);
-  box-shadow: 0 10px 20px rgba(9, 26, 66, 0.22);
-}
-
-.world-clock-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.world-clock-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.world-clock-flag {
-  font-size: 16px;
-  line-height: 1;
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
-  display: inline-flex;
-  align-items: center;
-}
-
-.world-clock-flag-image {
-  width: 16px;
-  height: 11px;
-  border-radius: 2px;
-  border: 1px solid rgba(30, 62, 127, 0.2);
-  object-fit: cover;
-}
-
-.world-clock-code {
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.world-clock-label {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.world-clock-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #18b36b 0%, #0f9f5d 100%);
-  box-shadow: 0 0 0 3px rgba(24, 179, 107, 0.18);
-}
-
-.world-clock-time {
-  margin: 10px 0 0;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.world-clock-date {
-  margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 11px;
-}
-
-.world-clock-select {
-  margin-top: 10px;
-  width: 100%;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-.world-clock-select option {
-  color: #10224f;
-}
-
-.world-clock-select:focus-visible {
-  outline: none;
-  box-shadow: var(--ring);
-  border-color: rgba(255, 255, 255, 0.36);
-}
-
 .search-form {
   margin-top: 20px;
   max-width: 900px;
@@ -1143,14 +1039,6 @@ a {
 
   .search-input {
     height: 52px;
-  }
-
-  .world-clock {
-    width: 100%;
-  }
-
-  .hero-head {
-    flex-wrap: wrap;
   }
 
   .search-button {
