@@ -187,7 +187,7 @@ a {
   justify-content: space-between;
   align-items: flex-start;
   gap: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .hero-kicker {
@@ -216,11 +216,12 @@ a {
 
 .world-clock {
   width: min(320px, 100%);
-  border: 1px solid #d8e4fa;
-  border-radius: 14px;
-  padding: 12px;
-  background: linear-gradient(160deg, #ffffff 0%, #f3f8ff 45%, #edf4ff 100%);
-  box-shadow: var(--shadow-soft);
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  background: linear-gradient(160deg, #091a42 0%, #102d69 55%, #153b82 100%);
+  box-shadow: 0 14px 28px rgba(9, 26, 66, 0.24);
 }
 
 .world-clock-head {
@@ -234,10 +235,10 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #c8d8f8;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   padding: 3px 8px;
-  background: #f3f8ff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .world-clock-flag {
@@ -257,7 +258,7 @@ a {
 }
 
 .world-clock-code {
-  color: #1e3e7f;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -265,7 +266,7 @@ a {
 
 .world-clock-label {
   margin: 0;
-  color: var(--blue-strong);
+  color: rgba(255, 255, 255, 0.84);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -286,12 +287,12 @@ a {
   line-height: 1;
   letter-spacing: -0.02em;
   font-weight: 700;
-  color: #132b5e;
+  color: #ffffff;
 }
 
 .world-clock-date {
   margin: 8px 0 0;
-  color: var(--text-soft);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 13px;
 }
 
@@ -300,17 +301,21 @@ a {
   width: 100%;
   height: 36px;
   border-radius: 9px;
-  border: 1px solid #ccd9f4;
-  background: #fff;
-  color: #243b67;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   padding: 0 10px;
   font-size: 13px;
+}
+
+.world-clock-select option {
+  color: #10224f;
 }
 
 .world-clock-select:focus-visible {
   outline: none;
   box-shadow: var(--ring);
-  border-color: #8ab4f8;
+  border-color: rgba(255, 255, 255, 0.36);
 }
 
 .search-form {
@@ -1142,6 +1147,10 @@ a {
 
   .world-clock {
     width: 100%;
+  }
+
+  .hero-head {
+    flex-wrap: wrap;
   }
 
   .search-button {
