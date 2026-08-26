@@ -241,8 +241,11 @@ a {
 }
 
 .world-clock-flag {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  display: inline-flex;
+  align-items: center;
 }
 
 .world-clock-code {
