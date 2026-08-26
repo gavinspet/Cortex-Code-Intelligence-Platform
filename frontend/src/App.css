@@ -248,6 +248,14 @@ a {
   align-items: center;
 }
 
+.world-clock-flag-image {
+  width: 18px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(30, 62, 127, 0.2);
+  object-fit: cover;
+}
+
 .world-clock-code {
   color: #1e3e7f;
   font-size: 11px;

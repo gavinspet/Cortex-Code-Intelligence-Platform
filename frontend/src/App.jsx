@@ -178,14 +178,9 @@ function getCountryCodeForTimeZone(timeZone) {
   return 'UN'
 }
 
-function getFlagFromCountryCode(countryCode) {
-  if (countryCode === 'UN') return '🌐'
-  if (!countryCode || countryCode.length !== 2) return '🌐'
-  const code = countryCode.toUpperCase()
-  const first = code.codePointAt(0)
-  const second = code.codePointAt(1)
-  if (!first || !second) return '🌐'
-  return String.fromCodePoint(first + 127397, second + 127397)
+function getFlagImageUrl(countryCode) {
+  if (!countryCode || countryCode === 'UN') return null
+  return `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`
 }
 
 const TECH_GROUPS = [
@@ -387,14 +382,16 @@ function WorldClock() {
   ), [now, timeZone])
 
   const countryCode = useMemo(() => getCountryCodeForTimeZone(timeZone), [timeZone])
-  const flag = useMemo(() => getFlagFromCountryCode(countryCode), [countryCode])
+  const flagImageUrl = useMemo(() => getFlagImageUrl(countryCode), [countryCode])
 
   return (
     <aside className="world-clock" aria-label="World clock">
       <div className="world-clock-head">
         <p className="world-clock-label">World Clock</p>
         <div className="world-clock-meta" aria-label={`Selected region ${countryCode}`}>
-          <span className="world-clock-flag" aria-hidden="true">{flag}</span>
+          {flagImageUrl
+            ? <img className="world-clock-flag-image" src={flagImageUrl} alt={`${countryCode} flag`} loading="lazy" />
+            : <span className="world-clock-flag" aria-hidden="true">🌐</span>}
           <span className="world-clock-code">{countryCode}</span>
           <span className="world-clock-dot" aria-hidden="true" />
         </div>
