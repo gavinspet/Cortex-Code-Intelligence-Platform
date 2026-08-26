@@ -21,10 +21,11 @@ const PROJECT_LINKS = {
   health: 'https://cortex-code-intelligence-platform.onrender.com/health',
 }
 
-const DEFAULT_TIME_ZONE = 'Asia/Kolkata'
+const INDIA_TIMEZONE_CANDIDATES = ['Asia/Kolkata', 'Asia/Calcutta']
 
 const TIMEZONE_TO_COUNTRY = {
   'Asia/Kolkata': 'IN',
+  'Asia/Calcutta': 'IN',
   'Asia/Tokyo': 'JP',
   'Asia/Seoul': 'KR',
   'Asia/Shanghai': 'CN',
@@ -58,6 +59,7 @@ const TIMEZONE_TO_COUNTRY = {
   'Europe/Lisbon': 'PT',
   'Europe/Istanbul': 'TR',
   'Europe/Kyiv': 'UA',
+  'Europe/Kiev': 'UA',
   'Europe/Moscow': 'RU',
   'America/New_York': 'US',
   'America/Chicago': 'US',
@@ -77,8 +79,103 @@ const TIMEZONE_TO_COUNTRY = {
   'Africa/Nairobi': 'KE',
 }
 
+const TIMEZONE_CITY_HINTS = {
+  abidjan: 'CI',
+  accra: 'GH',
+  addis: 'ET',
+  algiers: 'DZ',
+  bangui: 'CF',
+  cairo: 'EG',
+  casablanca: 'MA',
+  johannesburg: 'ZA',
+  lagos: 'NG',
+  nairobi: 'KE',
+  tripoli: 'LY',
+  tunis: 'TN',
+  london: 'GB',
+  paris: 'FR',
+  berlin: 'DE',
+  madrid: 'ES',
+  rome: 'IT',
+  amsterdam: 'NL',
+  zurich: 'CH',
+  warsaw: 'PL',
+  lisbon: 'PT',
+  dublin: 'IE',
+  prague: 'CZ',
+  stockholm: 'SE',
+  oslo: 'NO',
+  copenhagen: 'DK',
+  helsinki: 'FI',
+  vienna: 'AT',
+  budapest: 'HU',
+  athens: 'GR',
+  istanbul: 'TR',
+  moscow: 'RU',
+  tokyo: 'JP',
+  seoul: 'KR',
+  shanghai: 'CN',
+  hong: 'HK',
+  singapore: 'SG',
+  bangkok: 'TH',
+  jakarta: 'ID',
+  manila: 'PH',
+  karachi: 'PK',
+  dhaka: 'BD',
+  colombo: 'LK',
+  kathmandu: 'NP',
+  katmandu: 'NP',
+  dubai: 'AE',
+  riyadh: 'SA',
+  doha: 'QA',
+  kuwait: 'KW',
+  jerusalem: 'IL',
+  tehran: 'IR',
+  new_york: 'US',
+  chicago: 'US',
+  denver: 'US',
+  phoenix: 'US',
+  los_angeles: 'US',
+  toronto: 'CA',
+  vancouver: 'CA',
+  montreal: 'CA',
+  mexico_city: 'MX',
+  bogota: 'CO',
+  lima: 'PE',
+  santiago: 'CL',
+  sao_paulo: 'BR',
+  buenos_aires: 'AR',
+  sydney: 'AU',
+  melbourne: 'AU',
+  perth: 'AU',
+  auckland: 'NZ',
+}
+
+function getSupportedTimeZones() {
+  if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) {
+    return Intl.supportedValuesOf('timeZone')
+  }
+  return ['UTC']
+}
+
+function getDefaultTimeZone() {
+  const zones = getSupportedTimeZones()
+  for (const candidate of INDIA_TIMEZONE_CANDIDATES) {
+    if (zones.includes(candidate)) return candidate
+  }
+  return zones.includes('UTC') ? 'UTC' : zones[0]
+}
+
 function getCountryCodeForTimeZone(timeZone) {
-  return TIMEZONE_TO_COUNTRY[timeZone] || 'UN'
+  if (!timeZone) return 'UN'
+  if (TIMEZONE_TO_COUNTRY[timeZone]) return TIMEZONE_TO_COUNTRY[timeZone]
+
+  const lowered = timeZone.toLowerCase()
+  for (const [hint, code] of Object.entries(TIMEZONE_CITY_HINTS)) {
+    if (lowered.includes(hint)) return code
+  }
+
+  return 'UN'
 }
 
 function getFlagFromCountryCode(countryCode) {
@@ -246,7 +343,7 @@ function DevHeader() {
 
 function WorldClock() {
   const [now, setNow] = useState(() => new Date())
-  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE)
+  const [timeZone, setTimeZone] = useState(() => getDefaultTimeZone())
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
@@ -254,9 +351,7 @@ function WorldClock() {
   }, [])
 
   const timeZoneOptions = useMemo(() => {
-    const zones = typeof Intl !== 'undefined' && Intl.supportedValuesOf
-      ? Intl.supportedValuesOf('timeZone')
-      : [DEFAULT_TIME_ZONE]
+    const zones = getSupportedTimeZones()
 
     const normalized = zones
       .map((zone) => ({
@@ -266,8 +361,8 @@ function WorldClock() {
       }))
       .sort((a, b) => a.label.localeCompare(b.label))
 
-    const india = normalized.find((x) => x.value === DEFAULT_TIME_ZONE)
-    const others = normalized.filter((x) => x.value !== DEFAULT_TIME_ZONE)
+    const india = normalized.find((x) => x.value === 'Asia/Kolkata' || x.value === 'Asia/Calcutta')
+    const others = normalized.filter((x) => x.value !== india?.value)
     return india ? [india, ...others] : normalized
   }, [])
 
