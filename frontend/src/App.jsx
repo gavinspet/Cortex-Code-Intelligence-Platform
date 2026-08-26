@@ -542,7 +542,7 @@ function Footer() {
       <p className="footer-title">Cortex Code Intelligence Platform</p>
       <p className="footer-desc">Analyze public repositories with automated technology detection, health scoring, and actionable engineering insights.</p>
       <p className="footer-links">
-        <a href={PROJECT_LINKS.repo} target="_blank" rel="noopener noreferrer">GitHub Source Repo</a>
+        <a href={PROJECT_LINKS.repo} target="_blank" rel="noopener noreferrer">Source Code</a>
         <span>·</span>
         <a href={PROJECT_LINKS.health} target="_blank" rel="noopener noreferrer">API Health</a>
         <span>·</span>
