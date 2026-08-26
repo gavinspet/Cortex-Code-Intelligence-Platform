@@ -230,6 +230,28 @@ a {
   gap: 8px;
 }
 
+.world-clock-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c8d8f8;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #f3f8ff;
+}
+
+.world-clock-flag {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.world-clock-code {
+  color: #1e3e7f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .world-clock-label {
   margin: 0;
   color: var(--blue-strong);

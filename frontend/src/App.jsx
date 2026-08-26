@@ -23,6 +23,74 @@ const PROJECT_LINKS = {
 
 const DEFAULT_TIME_ZONE = 'Asia/Kolkata'
 
+const TIMEZONE_TO_COUNTRY = {
+  'Asia/Kolkata': 'IN',
+  'Asia/Tokyo': 'JP',
+  'Asia/Seoul': 'KR',
+  'Asia/Shanghai': 'CN',
+  'Asia/Hong_Kong': 'HK',
+  'Asia/Singapore': 'SG',
+  'Asia/Bangkok': 'TH',
+  'Asia/Jakarta': 'ID',
+  'Asia/Manila': 'PH',
+  'Asia/Ho_Chi_Minh': 'VN',
+  'Asia/Karachi': 'PK',
+  'Asia/Dhaka': 'BD',
+  'Asia/Colombo': 'LK',
+  'Asia/Kathmandu': 'NP',
+  'Asia/Dubai': 'AE',
+  'Asia/Riyadh': 'SA',
+  'Asia/Qatar': 'QA',
+  'Asia/Kuwait': 'KW',
+  'Europe/London': 'GB',
+  'Europe/Dublin': 'IE',
+  'Europe/Paris': 'FR',
+  'Europe/Berlin': 'DE',
+  'Europe/Madrid': 'ES',
+  'Europe/Rome': 'IT',
+  'Europe/Amsterdam': 'NL',
+  'Europe/Zurich': 'CH',
+  'Europe/Stockholm': 'SE',
+  'Europe/Oslo': 'NO',
+  'Europe/Copenhagen': 'DK',
+  'Europe/Helsinki': 'FI',
+  'Europe/Warsaw': 'PL',
+  'Europe/Lisbon': 'PT',
+  'Europe/Istanbul': 'TR',
+  'Europe/Kyiv': 'UA',
+  'Europe/Moscow': 'RU',
+  'America/New_York': 'US',
+  'America/Chicago': 'US',
+  'America/Denver': 'US',
+  'America/Los_Angeles': 'US',
+  'America/Toronto': 'CA',
+  'America/Vancouver': 'CA',
+  'America/Mexico_City': 'MX',
+  'America/Sao_Paulo': 'BR',
+  'America/Buenos_Aires': 'AR',
+  'Australia/Sydney': 'AU',
+  'Australia/Melbourne': 'AU',
+  'Australia/Perth': 'AU',
+  'Pacific/Auckland': 'NZ',
+  'Africa/Johannesburg': 'ZA',
+  'Africa/Cairo': 'EG',
+  'Africa/Nairobi': 'KE',
+}
+
+function getCountryCodeForTimeZone(timeZone) {
+  return TIMEZONE_TO_COUNTRY[timeZone] || 'UN'
+}
+
+function getFlagFromCountryCode(countryCode) {
+  if (countryCode === 'UN') return '🌐'
+  if (!countryCode || countryCode.length !== 2) return '🌐'
+  const code = countryCode.toUpperCase()
+  const first = code.codePointAt(0)
+  const second = code.codePointAt(1)
+  if (!first || !second) return '🌐'
+  return String.fromCodePoint(first + 127397, second + 127397)
+}
+
 const TECH_GROUPS = [
   ['frontendFrameworks', 'Frontend'],
   ['backendFrameworks', 'Backend'],
@@ -193,6 +261,7 @@ function WorldClock() {
     const normalized = zones
       .map((zone) => ({
         value: zone,
+        countryCode: getCountryCodeForTimeZone(zone),
         label: zone.replace(/_/g, ' '),
       }))
       .sort((a, b) => a.label.localeCompare(b.label))
@@ -222,11 +291,18 @@ function WorldClock() {
     }).format(now)
   ), [now, timeZone])
 
+  const countryCode = useMemo(() => getCountryCodeForTimeZone(timeZone), [timeZone])
+  const flag = useMemo(() => getFlagFromCountryCode(countryCode), [countryCode])
+
   return (
     <aside className="world-clock" aria-label="World clock">
       <div className="world-clock-head">
         <p className="world-clock-label">World Clock</p>
-        <span className="world-clock-dot" aria-hidden="true" />
+        <div className="world-clock-meta" aria-label={`Selected region ${countryCode}`}>
+          <span className="world-clock-flag" aria-hidden="true">{flag}</span>
+          <span className="world-clock-code">{countryCode}</span>
+          <span className="world-clock-dot" aria-hidden="true" />
+        </div>
       </div>
       <p className="world-clock-time">{timeText}</p>
       <p className="world-clock-date">{dateText}</p>
