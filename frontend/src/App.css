@@ -182,6 +182,14 @@ a {
   padding: 20px 4px 8px;
 }
 
+.hero-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .hero-kicker {
   margin: 0;
   font-weight: 600;
@@ -204,6 +212,72 @@ a {
   margin: 0;
   color: var(--text-soft);
   font-size: 17px;
+}
+
+.world-clock {
+  width: min(320px, 100%);
+  border: 1px solid #d8e4fa;
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(160deg, #ffffff 0%, #f3f8ff 45%, #edf4ff 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.world-clock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.world-clock-label {
+  margin: 0;
+  color: var(--blue-strong);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.world-clock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #18b36b 0%, #0f9f5d 100%);
+  box-shadow: 0 0 0 3px rgba(24, 179, 107, 0.18);
+}
+
+.world-clock-time {
+  margin: 10px 0 0;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  color: #132b5e;
+}
+
+.world-clock-date {
+  margin: 8px 0 0;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.world-clock-select {
+  margin-top: 10px;
+  width: 100%;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid #ccd9f4;
+  background: #fff;
+  color: #243b67;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.world-clock-select:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-color: #8ab4f8;
 }
 
 .search-form {
@@ -1031,6 +1105,10 @@ a {
 
   .search-input {
     height: 52px;
+  }
+
+  .world-clock {
+    width: 100%;
   }
 
   .search-button {

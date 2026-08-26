@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 
 const getApiUrl = () => {
   const e = import.meta.env.VITE_API_URL
@@ -20,6 +20,8 @@ const PROJECT_LINKS = {
   repo: 'https://github.com/gavinspet/Cortex-Code-Intelligence-Platform',
   health: 'https://cortex-code-intelligence-platform.onrender.com/health',
 }
+
+const DEFAULT_TIME_ZONE = 'Asia/Kolkata'
 
 const TECH_GROUPS = [
   ['frontendFrameworks', 'Frontend'],
@@ -174,14 +176,88 @@ function DevHeader() {
   )
 }
 
+function WorldClock() {
+  const [now, setNow] = useState(() => new Date())
+  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const timeZoneOptions = useMemo(() => {
+    const zones = typeof Intl !== 'undefined' && Intl.supportedValuesOf
+      ? Intl.supportedValuesOf('timeZone')
+      : [DEFAULT_TIME_ZONE]
+
+    const normalized = zones
+      .map((zone) => ({
+        value: zone,
+        label: zone.replace(/_/g, ' '),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+
+    const india = normalized.find((x) => x.value === DEFAULT_TIME_ZONE)
+    const others = normalized.filter((x) => x.value !== DEFAULT_TIME_ZONE)
+    return india ? [india, ...others] : normalized
+  }, [])
+
+  const timeText = useMemo(() => (
+    new Intl.DateTimeFormat('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+      timeZone,
+    }).format(now)
+  ), [now, timeZone])
+
+  const dateText = useMemo(() => (
+    new Intl.DateTimeFormat('en-IN', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone,
+    }).format(now)
+  ), [now, timeZone])
+
+  return (
+    <aside className="world-clock" aria-label="World clock">
+      <div className="world-clock-head">
+        <p className="world-clock-label">World Clock</p>
+        <span className="world-clock-dot" aria-hidden="true" />
+      </div>
+      <p className="world-clock-time">{timeText}</p>
+      <p className="world-clock-date">{dateText}</p>
+      <label className="sr-only" htmlFor="worldClockZone">Select timezone</label>
+      <select
+        id="worldClockZone"
+        className="world-clock-select"
+        value={timeZone}
+        onChange={(e) => setTimeZone(e.target.value)}
+      >
+        {timeZoneOptions.map((zone) => (
+          <option key={zone.value} value={zone.value}>{zone.label}</option>
+        ))}
+      </select>
+    </aside>
+  )
+}
+
 function Hero({ url, setUrl, phase, onSubmit, validation }) {
   const showError = url.trim().length > 0 && !validation.isValid
 
   return (
     <section className="hero" aria-labelledby="cortex-title">
-      <p className="hero-kicker">Cortex</p>
-      <h1 id="cortex-title">Code Intelligence Platform</h1>
-      <p className="hero-subtitle">Analyze any public GitHub repository.</p>
+      <div className="hero-head">
+        <div>
+          <p className="hero-kicker">Cortex</p>
+          <h1 id="cortex-title">Code Intelligence Platform</h1>
+          <p className="hero-subtitle">Analyze any public GitHub repository.</p>
+        </div>
+        <WorldClock />
+      </div>
 
       <form className="search-form" onSubmit={onSubmit}>
         <label className="sr-only" htmlFor="repositoryUrl">Repository URL</label>
