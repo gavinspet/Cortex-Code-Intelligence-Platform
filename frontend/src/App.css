@@ -237,6 +237,17 @@ a {
   background: var(--surface);
 }
 
+.search-input.is-invalid {
+  border-color: #d93025;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.12);
+}
+
+.search-validation {
+  margin: -2px 0 0;
+  font-size: 13px;
+  color: #b42318;
+}
+
 .search-button {
   width: 120px;
   height: 42px;

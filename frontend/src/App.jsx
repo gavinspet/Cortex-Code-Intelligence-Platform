@@ -48,6 +48,44 @@ const LANG_COLORS = {
   '.sh': '#10b981', '.sql': '#f59e0b', '.xml': '#0ea5e9', '.toml': '#f59e0b',
 }
 
+const SUPPORTED_REPO_HOST_PATTERNS = [
+  'github.com',
+  'gitlab.com',
+  'bitbucket.org',
+  'dev.azure.com',
+]
+
+function validateRepositoryUrl(rawUrl) {
+  const value = (rawUrl || '').trim()
+  if (!value) {
+    return { isValid: false, message: 'Enter a repository URL to continue.' }
+  }
+
+  let u
+  try {
+    u = new URL(value)
+  } catch {
+    return { isValid: false, message: 'Use a valid URL format (for example: https://github.com/user/repo).' }
+  }
+
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+    return { isValid: false, message: 'URL must start with http:// or https://.' }
+  }
+
+  const host = u.hostname.toLowerCase()
+  const supported = SUPPORTED_REPO_HOST_PATTERNS.some((pattern) => host === pattern || host.endsWith(`.${pattern}`))
+  if (!supported) {
+    return { isValid: false, message: 'Use a supported git host: GitHub, GitLab, Bitbucket, or Azure DevOps.' }
+  }
+
+  const parts = u.pathname.replace(/\.git$/, '').split('/').filter(Boolean)
+  if (parts.length < 2) {
+    return { isValid: false, message: 'Repository URL must include owner/group and repository name.' }
+  }
+
+  return { isValid: true, message: '' }
+}
+
 const toLocale = (v) => (typeof v === 'number' ? v.toLocaleString() : v || '0')
 const getLangColor = (ext) => LANG_COLORS[ext] || '#7c3aed'
 
@@ -136,7 +174,9 @@ function DevHeader() {
   )
 }
 
-function Hero({ url, setUrl, phase, onSubmit }) {
+function Hero({ url, setUrl, phase, onSubmit, validation }) {
+  const showError = url.trim().length > 0 && !validation.isValid
+
   return (
     <section className="hero" aria-labelledby="cortex-title">
       <p className="hero-kicker">Cortex</p>
@@ -151,17 +191,20 @@ function Hero({ url, setUrl, phase, onSubmit }) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://github.com/user/repository"
-          className="search-input mono"
+          className={`search-input mono ${showError ? 'is-invalid' : ''}`}
           disabled={phase === 'submitting' || phase === 'polling'}
+          aria-invalid={showError}
         />
         <button
           type="submit"
           className="search-button"
-          disabled={phase === 'submitting' || phase === 'polling' || !url.trim()}
+          disabled={phase === 'submitting' || phase === 'polling' || !validation.isValid}
         >
           {phase === 'submitting' || phase === 'polling' ? 'Analyzing...' : 'Analyze'}
         </button>
       </form>
+
+      {showError && <p className="search-validation">{validation.message}</p>}
 
       <p className="hero-meta">Static analysis · Repository intelligence · Engineering insights</p>
     </section>
@@ -519,6 +562,7 @@ export default function App() {
   const [statusMsg, setStatusMsg] = useState('')
   const [analysis, setAnalysis] = useState(null)
   const [jobStatus, setJobStatus] = useState('')
+  const urlValidation = useMemo(() => validateRepositoryUrl(url), [url])
 
   const poll = useCallback(async (jobId) => {
     setPhase('polling')
@@ -558,7 +602,12 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const cleanUrl = url.trim()
-    if (!cleanUrl) return
+    const validation = validateRepositoryUrl(cleanUrl)
+    if (!validation.isValid) {
+      setStatusMsg(validation.message)
+      setPhase('error')
+      return
+    }
 
     setSubmittedUrl(cleanUrl)
     setPhase('submitting')
@@ -591,7 +640,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <main className="page" role="main">
-        <Hero url={url} setUrl={setUrl} phase={phase} onSubmit={handleSubmit} />
+        <Hero url={url} setUrl={setUrl} phase={phase} onSubmit={handleSubmit} validation={urlValidation} />
         <SectionNav visible={phase === 'done' && !!analysis} />
         <AnalysisJobStatus phase={phase} statusMsg={statusMsg} jobStatus={jobStatus} />
         {phase === 'done' && analysis ? <AnalysisDashboard analysis={analysis} submittedUrl={submittedUrl} /> : null}
