@@ -154,6 +154,39 @@ public:
 static AnalysisHandler analysisHandler;
 static std::atomic<bool> shutdown_requested(false);
 
+static size_t resolveWorkerCount() noexcept {
+  constexpr size_t kDefaultWorkerCount = 4;
+  constexpr size_t kMaxWorkerCount = 16;
+
+  const char* raw = std::getenv("WORKER_COUNT");
+  if (!raw) {
+    return kDefaultWorkerCount;
+  }
+
+  try {
+    const int parsed = std::stoi(raw);
+    if (parsed <= 0) {
+      Logger::instance().warn(
+        "Invalid WORKER_COUNT (<= 0), falling back to default: " +
+        std::to_string(kDefaultWorkerCount));
+      return kDefaultWorkerCount;
+    }
+
+    size_t count = static_cast<size_t>(parsed);
+    if (count > kMaxWorkerCount) {
+      Logger::instance().warn(
+        "WORKER_COUNT too high, capping to " + std::to_string(kMaxWorkerCount));
+      count = kMaxWorkerCount;
+    }
+    return count;
+  } catch (...) {
+    Logger::instance().warn(
+      "Failed to parse WORKER_COUNT, falling back to default: " +
+      std::to_string(kDefaultWorkerCount));
+    return kDefaultWorkerCount;
+  }
+}
+
 // Signal handler
 static void signalHandler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
@@ -274,7 +307,12 @@ void Application::buildDependencyGraph() noexcept {
         }
         
         dispatchQueue_ = std::make_shared<cortex::worker::RedisStreamJobQueue>(
-          "cortex-redis-dispatch",
+          "cortex-redis-publisher",
+          "cortex:jobs",
+          "cortex-workers");
+
+        workerDispatchQueue_ = std::make_shared<cortex::worker::RedisStreamJobQueue>(
+          "cortex-redis-workers",
           "cortex:jobs",
           "cortex-workers");
 
@@ -324,14 +362,21 @@ void Application::buildDependencyGraph() noexcept {
             insightRepository_);
         Logger::instance().info("Registered RepositoryInsightService");
 
-        // 13. Create JobWorker with all services injected
-        jobWorker_ = std::make_shared<JobWorker>(
-          jobRepository_, analysisRepository_, dispatchQueue_, "worker-1",
-            gitHubMetadataService_, technologyService_, repoHealthService_, insightService_);
-        Logger::instance().info("Registered JobWorker (all enrichment services)");
+        const size_t workerCount = resolveWorkerCount();
+        jobWorkerPool_ = std::make_shared<cortex::worker::JobWorkerPool>(
+            workerCount,
+            jobRepository_,
+            analysisRepository_,
+          workerDispatchQueue_,
+            gitHubMetadataService_,
+            technologyService_,
+            repoHealthService_,
+            insightService_,
+            "cortex-worker-");
+        Logger::instance().info("Registered JobWorkerPool with worker count: " + std::to_string(workerCount));
 
         // 11. Create WorkerService (worker lifecycle management)
-        workerService_ = std::make_shared<WorkerService>(jobWorker_);
+        workerService_ = std::make_shared<WorkerService>(jobWorkerPool_);
         Logger::instance().info("Registered WorkerService");
 
         // 14. Create AnalysisService and AnalysisController (with all enrichment services)
@@ -438,14 +483,24 @@ void Application::initializeDrogon() {
     }
 
       app.createRedisClient(redisHost,
-                             redisPort,
-                             "cortex-redis-dispatch",
-                             redisPassword,
-                             1,
-                             false,
-                             -1.0,
-                             0,
-                             "");
+                 redisPort,
+                 "cortex-redis-publisher",
+                 redisPassword,
+                 1,
+                 false,
+                 2.0,
+                 0,
+                 "");
+
+      app.createRedisClient(redisHost,
+                 redisPort,
+                 "cortex-redis-workers",
+                 redisPassword,
+                 1,
+                 false,
+                 2.0,
+                 0,
+                 "");
 
     Logger::instance().info(
       "Redis client configured: host=" + redisHost + ":" + std::to_string(redisPort));

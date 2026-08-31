@@ -37,6 +37,7 @@ set(SOURCES
     src/infrastructure/MySQLJobRepository.cpp
     src/infrastructure/MySQLAnalysisRepository.cpp
     src/worker/JobWorker.cpp
+    src/worker/JobWorkerPool.cpp
     src/worker/RedisStreamJobQueue.cpp
     src/core/di/ServiceContainer.cpp
     src/github/GitHubClient.cpp

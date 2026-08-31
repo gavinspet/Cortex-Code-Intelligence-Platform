@@ -5,6 +5,7 @@
 #include <fstream>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 
 namespace cortex::worker {
 
@@ -84,7 +85,8 @@ void JobWorker::notifyJobAvailable() noexcept {
 }
 
 void JobWorker::workerLoop() noexcept {
-    cortex::logging::Logger::instance().info("Worker thread started processing jobs");
+    cortex::logging::Logger::instance().info(
+        "Worker thread started processing jobs for consumer " + consumerName_);
 
     if (dispatchQueue_) {
         if (!dispatchQueue_->ensureConsumerGroup()) {
@@ -97,6 +99,7 @@ void JobWorker::workerLoop() noexcept {
             if (dispatchQueue_) {
                 auto message = dispatchQueue_->consumeNext(consumerName_, 1000);
                 if (!message.has_value()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
                     continue;
                 }
 
@@ -129,10 +132,7 @@ void JobWorker::workerLoop() noexcept {
                             std::string("Failed to XACK message: ") + message->streamId);
                     }
                 } else {
-                    cortex::logging::Logger::instance().warn(
-                        std::string("Job processing failed; leaving message pending for recovery: ") +
-                        message->streamId);
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                    (void)handleRetryOrDeadLetter(*message);
                 }
 
                 continue;
@@ -162,23 +162,144 @@ void JobWorker::workerLoop() noexcept {
         }
     }
 
-    cortex::logging::Logger::instance().info("Worker thread exiting");
+    cortex::logging::Logger::instance().info(
+        "Worker thread exiting for consumer " + consumerName_);
+}
+
+int JobWorker::maxRetryAttempts() const noexcept {
+    constexpr int kDefaultRetries = 3;
+    const char* raw = std::getenv("JOB_MAX_RETRIES");
+    if (!raw) {
+        return kDefaultRetries;
+    }
+
+    try {
+        const int parsed = std::stoi(raw);
+        if (parsed < 0) {
+            cortex::logging::Logger::instance().warn(
+                "Invalid JOB_MAX_RETRIES (< 0), using default 3");
+            return kDefaultRetries;
+        }
+        return parsed;
+    } catch (...) {
+        cortex::logging::Logger::instance().warn(
+            "Failed to parse JOB_MAX_RETRIES, using default 3");
+        return kDefaultRetries;
+    }
+}
+
+bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& message) noexcept {
+    if (!dispatchQueue_) {
+        return false;
+    }
+
+    const int maxRetries = maxRetryAttempts();
+    const int nextAttempt = message.attempt + 1;
+
+    if (!lastFailureRetryable_) {
+        const auto completedNow = std::chrono::system_clock::now();
+        (void)repository_->updateStatus(message.jobId, cortex::domain::JobStatus::FAILED);
+        (void)repository_->setCompletedAt(message.jobId, completedNow);
+
+        if (!dispatchQueue_->publishDeadLetter(message, lastFailureReason_)) {
+            cortex::logging::Logger::instance().error(
+                std::string("Non-retryable dead-letter publish failed; leaving pending: ") +
+                message.streamId);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            return false;
+        }
+
+        if (!dispatchQueue_->ack(message.streamId)) {
+            cortex::logging::Logger::instance().warn(
+                std::string("Non-retryable dead-letter XACK failed: ") + message.streamId);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            return false;
+        }
+
+        cortex::logging::Logger::instance().warn(
+            std::string("Job moved to dead-letter stream without retry: ") + message.jobId +
+            " reason=" + lastFailureReason_);
+        return true;
+    }
+
+    if (nextAttempt <= maxRetries) {
+        if (!repository_->updateStatus(message.jobId, cortex::domain::JobStatus::QUEUED)) {
+            cortex::logging::Logger::instance().warn(
+                std::string("Failed to reset job status to QUEUED for retry: ") + message.jobId);
+        }
+
+        if (!dispatchQueue_->publishJob(message.jobId, nextAttempt)) {
+            cortex::logging::Logger::instance().warn(
+                std::string("Retry publish failed; leaving message pending for recovery: ") +
+                message.streamId + " jobId=" + message.jobId +
+                " nextAttempt=" + std::to_string(nextAttempt));
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            return false;
+        }
+
+        if (!dispatchQueue_->ack(message.streamId)) {
+            cortex::logging::Logger::instance().warn(
+                std::string("Retry published but XACK failed; may duplicate on recovery: ") +
+                message.streamId);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            return false;
+        }
+
+        cortex::logging::Logger::instance().warn(
+            std::string("Job scheduled for retry: ") + message.jobId +
+            " attempt=" + std::to_string(nextAttempt) +
+            "/" + std::to_string(maxRetries));
+        return true;
+    }
+
+    const auto completedNow = std::chrono::system_clock::now();
+    if (!repository_->updateStatus(message.jobId, cortex::domain::JobStatus::FAILED)) {
+        cortex::logging::Logger::instance().warn(
+            std::string("Failed to mark job FAILED for dead-letter: ") + message.jobId);
+    }
+    if (!repository_->setCompletedAt(message.jobId, completedNow)) {
+        cortex::logging::Logger::instance().warn(
+            std::string("Failed to set completedAt for dead-lettered job: ") + message.jobId);
+    }
+
+    const std::string reason = "max_retry_exceeded";
+    if (!dispatchQueue_->publishDeadLetter(message, reason)) {
+        cortex::logging::Logger::instance().error(
+            std::string("Dead-letter publish failed; leaving message pending: ") + message.streamId);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        return false;
+    }
+
+    if (!dispatchQueue_->ack(message.streamId)) {
+        cortex::logging::Logger::instance().warn(
+            std::string("Dead-letter publish succeeded but XACK failed: ") + message.streamId);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        return false;
+    }
+
+    cortex::logging::Logger::instance().warn(
+        std::string("Job moved to dead-letter stream: ") + message.jobId +
+        " attempts=" + std::to_string(message.attempt));
+    return true;
 }
 
 bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
     try {
+        lastFailureRetryable_ = true;
+        lastFailureReason_ = "processing_error";
+
         const std::string& jobId = job.getId();
         const std::string& repoUrl = job.getRepositoryUrl();
 
         // Log job start
         cortex::logging::Logger::instance().info(
-            std::string("Job dequeued: ") + jobId);
+            std::string("[") + consumerName_ + "] Job dequeued: " + jobId);
 
         // Update status to RUNNING unless this is a recovered in-flight message.
         auto now = std::chrono::system_clock::now();
         if (job.getStatus() == cortex::domain::JobStatus::RUNNING) {
             cortex::logging::Logger::instance().info(
-                std::string("Resuming RUNNING job from Redis pending state: ") + jobId);
+                std::string("[") + consumerName_ + "] Resuming RUNNING job from Redis pending state: " + jobId);
         } else {
             if (!repository_->updateStatus(jobId, cortex::domain::JobStatus::RUNNING)) {
                 cortex::logging::Logger::instance().warn(
@@ -192,7 +313,7 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         }
 
         cortex::logging::Logger::instance().info(
-            std::string("Job started processing: ") + jobId);
+            std::string("[") + consumerName_ + "] Job started processing: " + jobId);
 
         // Run real git clone and analysis
         if (!analyzeRepository(jobId, repoUrl)) {
@@ -212,14 +333,32 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         }
 
         cortex::logging::Logger::instance().info(
-            std::string("Job completed successfully: ") + jobId);
+            std::string("[") + consumerName_ + "] Job completed successfully: " + jobId);
         return true;
 
     } catch (const std::exception& e) {
+        lastFailureRetryable_ = true;
+        lastFailureReason_ = "processing_exception";
         cortex::logging::Logger::instance().error(
             std::string("Error processing job: ") + e.what());
         return false;
     }
+}
+
+bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcept {
+    const auto has = [&errorOutput](const std::string& token) {
+        return errorOutput.find(token) != std::string::npos;
+    };
+
+    if (has("Repository not found") ||
+        has("remote: Not Found") ||
+        has("not found") ||
+        has("fatal: repository") ||
+        has("could not read Username")) {
+        return false;
+    }
+
+    return true;
 }
 
     bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept {
@@ -244,14 +383,14 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         cortex::logging::Logger::instance().info("Cloning repository: " + cloneUrl);
 
         // git clone --depth 1 into the clone path
-        std::string cmd = "git clone --depth 1 --quiet " + cloneUrl + " " + clonePath + " 2>&1";
+        std::string cmd = "GIT_TERMINAL_PROMPT=0 git clone --depth 1 --quiet " +
+                  cloneUrl + " " + clonePath + " 2>&1";
 
         std::array<char, 256> buf{};
         std::string output;
         std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
         if (!pipe) {
             cortex::logging::Logger::instance().error("Failed to run git clone for job: " + jobId);
-            repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
             return false;
         }
         while (fgets(buf.data(), buf.size(), pipe.get())) {
@@ -262,7 +401,13 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         if (exitCode != 0) {
             cortex::logging::Logger::instance().error(
                 "git clone failed for job " + jobId + ": " + output);
-            repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
+            if (isRetryableFailure(output)) {
+                lastFailureRetryable_ = true;
+                lastFailureReason_ = "clone_retryable_failure";
+            } else {
+                lastFailureRetryable_ = false;
+                lastFailureReason_ = "clone_non_retryable_failure";
+            }
             return false;
         }
 
@@ -386,9 +531,10 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         }
         return true;
     } catch (const std::exception& e) {
+        lastFailureRetryable_ = true;
+        lastFailureReason_ = "analyze_exception";
         cortex::logging::Logger::instance().error(
             std::string("Error in analyzeRepository: ") + e.what());
-        repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
         return false;
     }
 }

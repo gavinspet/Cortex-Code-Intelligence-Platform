@@ -26,8 +26,10 @@ using cortex::utils::UuidGenerator;
 using cortex::domain::Job;
 using cortex::domain::JobStatus;
 
-std::optional<Job> RepositoryService::submitRepository(const RepositoryRequest& request) const noexcept {
+SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryRequest& request) const noexcept {
     try {
+        const auto submitStart = std::chrono::steady_clock::now();
+
         // Log incoming submission
         Logger::instance().info("Incoming repository submission request");
 
@@ -36,13 +38,13 @@ std::optional<Job> RepositoryService::submitRepository(const RepositoryRequest& 
         
         if (request.isEmpty()) {
             Logger::instance().warn("Repository submission rejected: empty URL");
-            return std::nullopt;
+            return {SubmitRepositoryStatus::INVALID_REQUEST, std::nullopt};
         }
 
         if (!UrlValidator::isValidRepositoryUrl(url)) {
             Logger::instance().warn(std::string("Repository submission rejected: invalid URL - ") + 
                                    std::string(url));
-            return std::nullopt;
+            return {SubmitRepositoryStatus::INVALID_REQUEST, std::nullopt};
         }
 
         // Generate UUID for this job
@@ -54,15 +56,34 @@ std::optional<Job> RepositoryService::submitRepository(const RepositoryRequest& 
         Job job(jobId, std::string(url), JobStatus::QUEUED, createdAt);
 
         // Store job in repository
+        const auto mysqlSaveStart = std::chrono::steady_clock::now();
         jobRepository_->save(job);
+        const auto mysqlSaveEnd = std::chrono::steady_clock::now();
+        const auto mysqlSaveMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            mysqlSaveEnd - mysqlSaveStart).count();
+        Logger::instance().info(
+            "submit_timing jobId=" + jobId + " mysql_save_ms=" + std::to_string(mysqlSaveMs));
         Logger::instance().info(std::string("Job stored in repository: ") + jobId);
 
         if (dispatchQueue_) {
+            const auto publishStart = std::chrono::steady_clock::now();
             if (!dispatchQueue_->publishJob(jobId)) {
-                Logger::instance().error(
-                    std::string("Job persisted but Redis publish failed: ") + jobId);
-                return std::nullopt;
+                const auto publishEnd = std::chrono::steady_clock::now();
+                const auto publishMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    publishEnd - publishStart).count();
+                Logger::instance().warn(
+                    "submit_timing jobId=" + jobId + " redis_publish_ms=" + std::to_string(publishMs) +
+                    " status=failed");
+                Logger::instance().warn(
+                    std::string("Backpressure or dispatch publish failure for job: ") + jobId);
+                return {SubmitRepositoryStatus::BACKPRESSURED, std::nullopt};
             }
+            const auto publishEnd = std::chrono::steady_clock::now();
+            const auto publishMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                publishEnd - publishStart).count();
+            Logger::instance().info(
+                "submit_timing jobId=" + jobId + " redis_publish_ms=" + std::to_string(publishMs) +
+                " status=ok");
             Logger::instance().info(std::string("Job published to Redis stream: ") + jobId);
         }
 
@@ -76,15 +97,19 @@ std::optional<Job> RepositoryService::submitRepository(const RepositoryRequest& 
 
         // Log submission accepted
         Logger::instance().info(std::string("Repository accepted for analysis: ") + std::string(url));
+        const auto submitEnd = std::chrono::steady_clock::now();
+        const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            submitEnd - submitStart).count();
+        Logger::instance().info("submit_timing jobId=" + jobId + " total_ms=" + std::to_string(totalMs));
 
-        return job;
+        return {SubmitRepositoryStatus::ACCEPTED, job};
 
     } catch (const std::exception& e) {
         Logger::instance().error(std::string("Exception in submitRepository: ") + e.what());
-        return std::nullopt;
+        return {SubmitRepositoryStatus::INTERNAL_ERROR, std::nullopt};
     } catch (...) {
         Logger::instance().critical("Unknown exception in submitRepository");
-        return std::nullopt;
+        return {SubmitRepositoryStatus::INTERNAL_ERROR, std::nullopt};
     }
 }
 

@@ -65,23 +65,49 @@ void RepositoryController::submitRepository(const drogon::HttpRequestPtr& req,
         RepositoryRequest request(repositoryUrl);
 
         // Call service to submit repository
-        auto jobOptional = service_->submitRepository(request);
+        auto result = service_->submitRepository(request);
 
-        if (!jobOptional.has_value()) {
+        if (result.status == SubmitRepositoryStatus::INVALID_REQUEST) {
             Logger::instance().warn("Repository submission failed validation");
-            
+
             Json::Value error;
             error["success"] = false;
             error["message"] = "Invalid repository URL. Must be HTTPS GitHub or GitLab repository.";
-            
+
             auto response = drogon::HttpResponse::newHttpJsonResponse(error);
             response->setStatusCode(drogon::k400BadRequest);
             callback(response);
             return;
         }
 
+        if (result.status == SubmitRepositoryStatus::BACKPRESSURED) {
+            Logger::instance().warn("Repository submission rejected due to backpressure");
+
+            Json::Value error;
+            error["success"] = false;
+            error["message"] = "System is busy. Please retry shortly.";
+
+            auto response = drogon::HttpResponse::newHttpJsonResponse(error);
+            response->setStatusCode(drogon::k429TooManyRequests);
+            callback(response);
+            return;
+        }
+
+        if (result.status == SubmitRepositoryStatus::INTERNAL_ERROR || !result.job.has_value()) {
+            Logger::instance().error("Repository submission failed due to internal dispatch error");
+
+            Json::Value error;
+            error["success"] = false;
+            error["message"] = "Internal server error";
+
+            auto response = drogon::HttpResponse::newHttpJsonResponse(error);
+            response->setStatusCode(drogon::k500InternalServerError);
+            callback(response);
+            return;
+        }
+
         // Successfully accepted - return 202 Accepted
-        const auto& job = jobOptional.value();
+        const auto& job = result.job.value();
         RepositoryResponse response(job);
         
         auto httpResponse = drogon::HttpResponse::newHttpJsonResponse(response.toJson());

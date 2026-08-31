@@ -14,6 +14,7 @@
 #include <atomic>
 #include <memory>
 #include <chrono>
+#include <string>
 
 namespace cortex::worker {
 
@@ -80,6 +81,9 @@ public:
     JobWorker& operator=(JobWorker&&) = delete;
 
 private:
+    int maxRetryAttempts() const noexcept;
+    bool handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& message) noexcept;
+
     /**
      * Worker thread main loop
      * Continuously processes QUEUED jobs until stop is signaled
@@ -100,6 +104,7 @@ private:
      * @param repositoryUrl URL of repository being analyzed
      */
     bool analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept;
+    bool isRetryableFailure(const std::string& errorOutput) const noexcept;
 
     // Dependencies (injected)
     std::shared_ptr<cortex::domain::IJobRepository> repository_;
@@ -121,6 +126,8 @@ private:
     // Control flags
     std::atomic<bool> running_{false};
     std::atomic<bool> shutdown_requested_{false};
+    bool lastFailureRetryable_{true};
+    std::string lastFailureReason_{"processing_error"};
 };
 
 } // namespace cortex::worker

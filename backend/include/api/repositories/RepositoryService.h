@@ -29,6 +29,18 @@ class WorkerService;
 
 namespace cortex::api::repositories {
 
+enum class SubmitRepositoryStatus {
+    ACCEPTED,
+    INVALID_REQUEST,
+    BACKPRESSURED,
+    INTERNAL_ERROR
+};
+
+struct SubmitRepositoryResult {
+    SubmitRepositoryStatus status;
+    std::optional<cortex::domain::Job> job;
+};
+
 /**
  * Repository submission service
  * 
@@ -85,7 +97,7 @@ public:
      * @param request Repository submission request
      * @return Job if successful, std::nullopt if validation fails
      */
-    std::optional<cortex::domain::Job> submitRepository(const RepositoryRequest& request) const noexcept;
+    SubmitRepositoryResult submitRepository(const RepositoryRequest& request) const noexcept;
 
     // Delete copy/move
     RepositoryService(const RepositoryService&) = delete;

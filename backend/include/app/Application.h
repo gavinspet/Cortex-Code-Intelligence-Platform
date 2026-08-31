@@ -16,6 +16,7 @@
 #include "infrastructure/InMemoryJobRepository.h"
 #include "database/Database.h"
 #include "worker/JobWorker.h"
+#include "worker/JobWorkerPool.h"
 #include "worker/WorkerService.h"
 #include "worker/RedisStreamJobQueue.h"
 #include "github/GitHubClient.h"
@@ -172,9 +173,10 @@ private:
     std::shared_ptr<JobController> jobController_;
 
     // Background worker services
-    std::shared_ptr<JobWorker> jobWorker_;
+    std::shared_ptr<cortex::worker::JobWorkerPool> jobWorkerPool_;
     std::shared_ptr<WorkerService> workerService_;
     std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue_;
+    std::shared_ptr<cortex::worker::IJobDispatchQueue> workerDispatchQueue_;
 
     // Analysis services
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;

@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "worker/JobWorker.h"
+#include "worker/JobWorkerPool.h"
 #include "domain/IJobRepository.h"
 #include <memory>
 
@@ -33,16 +33,16 @@ public:
      * 
      * @param jobWorker The job worker instance to manage
      */
-    explicit WorkerService(std::shared_ptr<JobWorker> jobWorker) noexcept
-        : job_worker_(std::move(jobWorker)) {}
+    explicit WorkerService(std::shared_ptr<JobWorkerPool> jobWorkerPool) noexcept
+        : job_worker_pool_(std::move(jobWorkerPool)) {}
 
     /**
      * Start background job processing
      * Should be called during application startup after DI container initialization
      */
     void start() noexcept {
-        if (job_worker_) {
-            job_worker_->start();
+        if (job_worker_pool_) {
+            job_worker_pool_->start();
         }
     }
 
@@ -52,8 +52,8 @@ public:
      * Waits for current job to complete before returning
      */
     void stop() noexcept {
-        if (job_worker_) {
-            job_worker_->stop();
+        if (job_worker_pool_) {
+            job_worker_pool_->stop();
         }
     }
 
@@ -62,7 +62,7 @@ public:
      * @return true if background processing is active
      */
     bool isRunning() const noexcept {
-        return job_worker_ && job_worker_->isRunning();
+        return job_worker_pool_ && job_worker_pool_->isRunning();
     }
 
     /**
@@ -70,16 +70,16 @@ public:
      * Called by RepositoryService after enqueueing a job
      */
     void notifyJobAvailable() noexcept {
-        if (job_worker_) {
-            job_worker_->notifyJobAvailable();
+        if (job_worker_pool_) {
+            job_worker_pool_->notifyJobAvailable();
         }
     }
 
     /**
      * Get underlying job worker (for advanced operations)
      */
-    std::shared_ptr<JobWorker> getWorker() const noexcept {
-        return job_worker_;
+    std::shared_ptr<JobWorkerPool> getWorkerPool() const noexcept {
+        return job_worker_pool_;
     }
 
     // Delete copy operations (service owns worker)
@@ -89,7 +89,7 @@ public:
     WorkerService& operator=(WorkerService&&) = delete;
 
 private:
-    std::shared_ptr<JobWorker> job_worker_;
+    std::shared_ptr<JobWorkerPool> job_worker_pool_;
 };
 
 } // namespace cortex::worker
