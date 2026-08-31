@@ -6,6 +6,28 @@
 #include <array>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
+#include <functional>
+
+namespace {
+
+class ScopeExit {
+public:
+    explicit ScopeExit(std::function<void()> fn) : fn_(std::move(fn)) {}
+    ~ScopeExit() {
+        if (fn_) {
+            fn_();
+        }
+    }
+
+    ScopeExit(const ScopeExit&) = delete;
+    ScopeExit& operator=(const ScopeExit&) = delete;
+
+private:
+    std::function<void()> fn_;
+};
+
+} // namespace
 
 namespace cortex::worker {
 
@@ -17,7 +39,9 @@ JobWorker::JobWorker(
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService,
     std::shared_ptr<cortex::technology::TechnologyService> technologyService,
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService,
-    std::shared_ptr<cortex::insight::RepositoryInsightService> insightService) noexcept
+        std::shared_ptr<cortex::insight::RepositoryInsightService> insightService,
+        std::shared_ptr<cortex::observability::IMetrics> metrics,
+        std::shared_ptr<cortex::observability::ITracing> tracing) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
             dispatchQueue_(std::move(dispatchQueue)),
@@ -25,7 +49,9 @@ JobWorker::JobWorker(
       metadataService_(std::move(metadataService)),
       technologyService_(std::move(technologyService)),
       healthService_(std::move(healthService)),
-      insightService_(std::move(insightService))
+            insightService_(std::move(insightService)),
+        metrics_(std::move(metrics)),
+        tracing_(std::move(tracing))
 {
     cortex::logging::Logger::instance().info("JobWorker constructed");
 }
@@ -103,6 +129,21 @@ void JobWorker::workerLoop() noexcept {
                     continue;
                 }
 
+                std::optional<cortex::observability::TraceContext> parentContext = std::nullopt;
+                if (!message->traceparent.empty() || !message->tracestate.empty()) {
+                    parentContext = cortex::observability::TraceContext{message->traceparent, message->tracestate};
+                }
+                auto consumeSpan = tracing_ ? tracing_->startSpan(
+                    "worker.consume_and_process",
+                    cortex::observability::SpanKind::Consumer,
+                    parentContext) : nullptr;
+                auto consumeScope = (tracing_ && consumeSpan) ? tracing_->activateSpan(consumeSpan) : nullptr;
+                if (consumeSpan) {
+                    consumeSpan->setAttribute("worker.id", consumerName_);
+                    consumeSpan->setAttribute("job.id", message->jobId);
+                    consumeSpan->setAttribute("job.attempt", static_cast<std::int64_t>(message->attempt));
+                }
+
                 auto job = repository_->findById(message->jobId);
                 if (!job.has_value()) {
                     cortex::logging::Logger::instance().error(
@@ -110,6 +151,10 @@ void JobWorker::workerLoop() noexcept {
                     if (!dispatchQueue_->ack(message->streamId)) {
                         cortex::logging::Logger::instance().error(
                             std::string("Failed to ack unknown-job message: ") + message->streamId);
+                    }
+                    if (consumeSpan) {
+                        consumeSpan->setStatusError("job_missing");
+                        consumeSpan->end();
                     }
                     continue;
                 }
@@ -122,6 +167,10 @@ void JobWorker::workerLoop() noexcept {
                         cortex::logging::Logger::instance().error(
                             std::string("Failed to XACK terminal-job message: ") + message->streamId);
                     }
+                    if (consumeSpan) {
+                        consumeSpan->setStatusOk();
+                        consumeSpan->end();
+                    }
                     continue;
                 }
 
@@ -131,8 +180,16 @@ void JobWorker::workerLoop() noexcept {
                         cortex::logging::Logger::instance().error(
                             std::string("Failed to XACK message: ") + message->streamId);
                     }
+                    if (consumeSpan) {
+                        consumeSpan->setStatusOk();
+                        consumeSpan->end();
+                    }
                 } else {
                     (void)handleRetryOrDeadLetter(*message);
+                    if (consumeSpan) {
+                        consumeSpan->setStatusError("job_processing_failed");
+                        consumeSpan->end();
+                    }
                 }
 
                 continue;
@@ -197,15 +254,28 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
     const int nextAttempt = message.attempt + 1;
 
     if (!lastFailureRetryable_) {
+        auto deadLetterSpan = tracing_ ? tracing_->startSpan("job.dead_letter.publish") : nullptr;
+        auto deadLetterScope = (tracing_ && deadLetterSpan) ? tracing_->activateSpan(deadLetterSpan) : nullptr;
+        if (deadLetterSpan) {
+            deadLetterSpan->setAttribute("job.id", message.jobId);
+            deadLetterSpan->setAttribute("job.attempt", static_cast<std::int64_t>(message.attempt));
+            deadLetterSpan->setAttribute("worker.id", consumerName_);
+        }
+
         const auto completedNow = std::chrono::system_clock::now();
         (void)repository_->updateStatus(message.jobId, cortex::domain::JobStatus::FAILED);
         (void)repository_->setCompletedAt(message.jobId, completedNow);
 
-        if (!dispatchQueue_->publishDeadLetter(message, lastFailureReason_)) {
+        const auto currentCtx = tracing_ ? tracing_->currentContext() : std::nullopt;
+        if (!dispatchQueue_->publishDeadLetter(message, lastFailureReason_, currentCtx)) {
             cortex::logging::Logger::instance().error(
                 std::string("Non-retryable dead-letter publish failed; leaving pending: ") +
                 message.streamId);
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (deadLetterSpan) {
+                deadLetterSpan->setStatusError("dead_letter_publish_failed");
+                deadLetterSpan->end();
+            }
             return false;
         }
 
@@ -213,27 +283,54 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
             cortex::logging::Logger::instance().warn(
                 std::string("Non-retryable dead-letter XACK failed: ") + message.streamId);
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (deadLetterSpan) {
+                deadLetterSpan->setStatusError("dead_letter_ack_failed");
+                deadLetterSpan->end();
+            }
             return false;
         }
 
         cortex::logging::Logger::instance().warn(
             std::string("Job moved to dead-letter stream without retry: ") + message.jobId +
             " reason=" + lastFailureReason_);
+
+        if (metrics_) {
+            metrics_->incrementJobsFailed();
+            metrics_->incrementJobsDeadLettered();
+        }
+        if (deadLetterSpan) {
+            deadLetterSpan->setStatusOk();
+            deadLetterSpan->end();
+        }
         return true;
     }
 
     if (nextAttempt <= maxRetries) {
+        auto retrySpan = tracing_ ? tracing_->startSpan("job.retry.schedule") : nullptr;
+        auto retryScope = (tracing_ && retrySpan) ? tracing_->activateSpan(retrySpan) : nullptr;
+        if (retrySpan) {
+            retrySpan->setAttribute("job.id", message.jobId);
+            retrySpan->setAttribute("job.attempt", static_cast<std::int64_t>(message.attempt));
+            retrySpan->setAttribute("job.next_attempt", static_cast<std::int64_t>(nextAttempt));
+            retrySpan->setAttribute("worker.id", consumerName_);
+        }
+
         if (!repository_->updateStatus(message.jobId, cortex::domain::JobStatus::QUEUED)) {
             cortex::logging::Logger::instance().warn(
                 std::string("Failed to reset job status to QUEUED for retry: ") + message.jobId);
         }
 
-        if (!dispatchQueue_->publishJob(message.jobId, nextAttempt)) {
+        const auto currentCtx = tracing_ ? tracing_->currentContext() : std::nullopt;
+        if (!dispatchQueue_->publishJob(message.jobId, nextAttempt, currentCtx)) {
             cortex::logging::Logger::instance().warn(
                 std::string("Retry publish failed; leaving message pending for recovery: ") +
                 message.streamId + " jobId=" + message.jobId +
                 " nextAttempt=" + std::to_string(nextAttempt));
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (retrySpan) {
+                retrySpan->setStatusError("retry_publish_failed");
+                retrySpan->end();
+            }
             return false;
         }
 
@@ -242,6 +339,10 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
                 std::string("Retry published but XACK failed; may duplicate on recovery: ") +
                 message.streamId);
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (retrySpan) {
+                retrySpan->setStatusError("retry_ack_failed");
+                retrySpan->end();
+            }
             return false;
         }
 
@@ -249,7 +350,23 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
             std::string("Job scheduled for retry: ") + message.jobId +
             " attempt=" + std::to_string(nextAttempt) +
             "/" + std::to_string(maxRetries));
+
+        if (metrics_) {
+            metrics_->incrementJobsRetried();
+        }
+        if (retrySpan) {
+            retrySpan->setStatusOk();
+            retrySpan->end();
+        }
         return true;
+    }
+
+    auto deadLetterSpan = tracing_ ? tracing_->startSpan("job.dead_letter.publish") : nullptr;
+    auto deadLetterScope = (tracing_ && deadLetterSpan) ? tracing_->activateSpan(deadLetterSpan) : nullptr;
+    if (deadLetterSpan) {
+        deadLetterSpan->setAttribute("job.id", message.jobId);
+        deadLetterSpan->setAttribute("job.attempt", static_cast<std::int64_t>(message.attempt));
+        deadLetterSpan->setAttribute("worker.id", consumerName_);
     }
 
     const auto completedNow = std::chrono::system_clock::now();
@@ -263,10 +380,15 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
     }
 
     const std::string reason = "max_retry_exceeded";
-    if (!dispatchQueue_->publishDeadLetter(message, reason)) {
+    const auto currentCtx = tracing_ ? tracing_->currentContext() : std::nullopt;
+    if (!dispatchQueue_->publishDeadLetter(message, reason, currentCtx)) {
         cortex::logging::Logger::instance().error(
             std::string("Dead-letter publish failed; leaving message pending: ") + message.streamId);
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (deadLetterSpan) {
+            deadLetterSpan->setStatusError("dead_letter_publish_failed");
+            deadLetterSpan->end();
+        }
         return false;
     }
 
@@ -274,17 +396,56 @@ bool JobWorker::handleRetryOrDeadLetter(const cortex::worker::StreamJobMessage& 
         cortex::logging::Logger::instance().warn(
             std::string("Dead-letter publish succeeded but XACK failed: ") + message.streamId);
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (deadLetterSpan) {
+            deadLetterSpan->setStatusError("dead_letter_ack_failed");
+            deadLetterSpan->end();
+        }
         return false;
     }
 
     cortex::logging::Logger::instance().warn(
         std::string("Job moved to dead-letter stream: ") + message.jobId +
         " attempts=" + std::to_string(message.attempt));
+
+    if (metrics_) {
+        metrics_->incrementJobsFailed();
+        metrics_->incrementJobsDeadLettered();
+    }
+    if (deadLetterSpan) {
+        deadLetterSpan->setStatusOk();
+        deadLetterSpan->end();
+    }
     return true;
 }
 
 bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
     try {
+        auto processSpan = tracing_ ? tracing_->startSpan("job.process") : nullptr;
+        auto processScope = (tracing_ && processSpan) ? tracing_->activateSpan(processSpan) : nullptr;
+        if (processSpan) {
+            processSpan->setAttribute("job.id", job.getId());
+            processSpan->setAttribute("worker.id", consumerName_);
+            processSpan->setAttribute("storage.backend", std::getenv("STORAGE_BACKEND") ? std::getenv("STORAGE_BACKEND") : "inmemory");
+        }
+
+        const auto processingStart = std::chrono::steady_clock::now();
+        if (metrics_) {
+            metrics_->incrementJobsActive();
+        }
+
+        ScopeExit metricsScope([this, processingStart]() {
+            if (!metrics_) {
+                return;
+            }
+
+            metrics_->decrementJobsActive();
+            const auto processingEnd = std::chrono::steady_clock::now();
+            const auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+                processingEnd - processingStart).count();
+            metrics_->observeJobProcessingDurationSeconds(
+                static_cast<double>(elapsedUs) / 1000000.0);
+        });
+
         lastFailureRetryable_ = true;
         lastFailureReason_ = "processing_error";
 
@@ -317,6 +478,10 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
 
         // Run real git clone and analysis
         if (!analyzeRepository(jobId, repoUrl)) {
+            if (processSpan) {
+                processSpan->setStatusError("analysis_failed");
+                processSpan->end();
+            }
             return false;
         }
 
@@ -334,6 +499,14 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
 
         cortex::logging::Logger::instance().info(
             std::string("[") + consumerName_ + "] Job completed successfully: " + jobId);
+
+        if (metrics_) {
+            metrics_->incrementJobsCompleted();
+        }
+        if (processSpan) {
+            processSpan->setStatusOk();
+            processSpan->end();
+        }
         return true;
 
     } catch (const std::exception& e) {
@@ -341,6 +514,13 @@ bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         lastFailureReason_ = "processing_exception";
         cortex::logging::Logger::instance().error(
             std::string("Error processing job: ") + e.what());
+        if (tracing_) {
+            auto span = tracing_->startSpan("job.process");
+            if (span) {
+                span->setStatusError("processing_exception");
+                span->end();
+            }
+        }
         return false;
     }
 }
@@ -361,7 +541,7 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
     return true;
 }
 
-    bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept {
+bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept {
     namespace fs = std::filesystem;
     try {
         const std::string workspaceBase = "/tmp/cortex-workspace";
@@ -380,7 +560,15 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
             fs::remove_all(clonePath);
         }
 
-        cortex::logging::Logger::instance().info("Cloning repository: " + cloneUrl);
+        auto cloneSpan = tracing_ ? tracing_->startSpan("analysis.repository.clone") : nullptr;
+        auto cloneScope = (tracing_ && cloneSpan) ? tracing_->activateSpan(cloneSpan) : nullptr;
+        if (cloneSpan) {
+            cloneSpan->setAttribute("job.id", jobId);
+            cloneSpan->setAttribute("analysis.type", "clone");
+            cloneSpan->setAttribute("worker.id", consumerName_);
+        }
+
+        cortex::logging::Logger::instance().info("Cloning repository for job " + jobId);
 
         // git clone --depth 1 into the clone path
         std::string cmd = "GIT_TERMINAL_PROMPT=0 git clone --depth 1 --quiet " +
@@ -401,6 +589,10 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
         if (exitCode != 0) {
             cortex::logging::Logger::instance().error(
                 "git clone failed for job " + jobId + ": " + output);
+            if (cloneSpan) {
+                cloneSpan->setStatusError("clone_failed");
+                cloneSpan->end();
+            }
             if (isRetryableFailure(output)) {
                 lastFailureRetryable_ = true;
                 lastFailureReason_ = "clone_retryable_failure";
@@ -411,7 +603,19 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
             return false;
         }
 
+        if (cloneSpan) {
+            cloneSpan->setStatusOk();
+            cloneSpan->end();
+        }
+
         cortex::logging::Logger::instance().info("Clone complete: " + clonePath);
+
+        auto staticAnalysisSpan = tracing_ ? tracing_->startSpan("analysis.static") : nullptr;
+        auto staticAnalysisScope = (tracing_ && staticAnalysisSpan) ? tracing_->activateSpan(staticAnalysisSpan) : nullptr;
+        if (staticAnalysisSpan) {
+            staticAnalysisSpan->setAttribute("job.id", jobId);
+            staticAnalysisSpan->setAttribute("analysis.type", "static");
+        }
 
         // Scan cloned repository
         cortex::domain::AnalysisResult result;
@@ -457,12 +661,27 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
             " dirs=" + std::to_string(result.dirCount) +
             " lines=" + std::to_string(result.totalLines));
 
+        if (staticAnalysisSpan) {
+            staticAnalysisSpan->setStatusOk();
+            staticAnalysisSpan->end();
+        }
+
         if (analysisRepository_) {
+            auto persistSpan = tracing_ ? tracing_->startSpan("storage.analysis.persist") : nullptr;
+            auto persistScope = (tracing_ && persistSpan) ? tracing_->activateSpan(persistSpan) : nullptr;
             analysisRepository_->save(result);
+            if (persistSpan) {
+                persistSpan->setAttribute("job.id", jobId);
+                persistSpan->setAttribute("storage.backend", std::getenv("STORAGE_BACKEND") ? std::getenv("STORAGE_BACKEND") : "inmemory");
+                persistSpan->setStatusOk();
+                persistSpan->end();
+            }
         }
 
         // Fetch GitHub metadata asynchronously from the worker thread
         if (metadataService_) {
+            auto metadataSpan = tracing_ ? tracing_->startSpan("analysis.metadata") : nullptr;
+            auto metadataScope = (tracing_ && metadataSpan) ? tracing_->activateSpan(metadataSpan) : nullptr;
             cortex::logging::Logger::instance().info(
                 "Fetching GitHub metadata for job " + jobId);
             auto metadata = metadataService_->fetchAndStore(jobId, repoUrl);
@@ -472,9 +691,17 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
                     + ": " + metadata->fullName
                     + " (★" + std::to_string(metadata->stars) + ")");
             }
+            if (metadataSpan) {
+                metadataSpan->setAttribute("job.id", jobId);
+                metadataSpan->setAttribute("analysis.type", "metadata");
+                metadataSpan->setStatusOk();
+                metadataSpan->end();
+            }
         }
         // Run static technology detection on the cloned repository
         if (technologyService_) {
+            auto technologySpan = tracing_ ? tracing_->startSpan("analysis.technology") : nullptr;
+            auto technologyScope = (tracing_ && technologySpan) ? tracing_->activateSpan(technologySpan) : nullptr;
             cortex::logging::Logger::instance().info(
                 "Technology detection starting for job " + jobId);
             auto tech = technologyService_->detectAndStore(jobId, clonePath);
@@ -484,10 +711,18 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
                     + ": type=" + tech->repositoryType
                     + " confidence=" + std::to_string(tech->confidenceScore));
             }
+            if (technologySpan) {
+                technologySpan->setAttribute("job.id", jobId);
+                technologySpan->setAttribute("analysis.type", "technology");
+                technologySpan->setStatusOk();
+                technologySpan->end();
+            }
         }
 
         // Evaluate repository health and quality score
         if (healthService_) {
+            auto healthSpan = tracing_ ? tracing_->startSpan("analysis.health") : nullptr;
+            auto healthScope = (tracing_ && healthSpan) ? tracing_->activateSpan(healthSpan) : nullptr;
             cortex::logging::Logger::instance().info(
                 "Repository health evaluation starting for job " + jobId);
             auto health = healthService_->evaluateAndStore(jobId, clonePath);
@@ -497,10 +732,18 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
                     + ": score=" + std::to_string(health->overallScore)
                     + " grade=" + health->grade);
             }
+            if (healthSpan) {
+                healthSpan->setAttribute("job.id", jobId);
+                healthSpan->setAttribute("analysis.type", "health");
+                healthSpan->setStatusOk();
+                healthSpan->end();
+            }
         }
 
         // Generate human-readable repository insights (aggregates all layers)
         if (insightService_) {
+            auto insightSpan = tracing_ ? tracing_->startSpan("analysis.insight") : nullptr;
+            auto insightScope = (tracing_ && insightSpan) ? tracing_->activateSpan(insightSpan) : nullptr;
             // Retrieve already-stored analysis results to pass as context
             std::optional<cortex::domain::AnalysisResult>         storedAnalysis;
             std::optional<cortex::github::GitHubMetadata>         storedMeta;
@@ -528,6 +771,12 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
                     + ": maturity=" + insights->estimatedMaturity
                     + " size=" + insights->estimatedProjectSize);
             }
+            if (insightSpan) {
+                insightSpan->setAttribute("job.id", jobId);
+                insightSpan->setAttribute("analysis.type", "insight");
+                insightSpan->setStatusOk();
+                insightSpan->end();
+            }
         }
         return true;
     } catch (const std::exception& e) {
@@ -535,6 +784,14 @@ bool JobWorker::isRetryableFailure(const std::string& errorOutput) const noexcep
         lastFailureReason_ = "analyze_exception";
         cortex::logging::Logger::instance().error(
             std::string("Error in analyzeRepository: ") + e.what());
+        if (tracing_) {
+            auto span = tracing_->startSpan("analysis.pipeline");
+            if (span) {
+                span->setAttribute("job.id", jobId);
+                span->setStatusError("analysis_exception");
+                span->end();
+            }
+        }
         return false;
     }
 }

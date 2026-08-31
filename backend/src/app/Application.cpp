@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <optional>
 #include <utility>
 
 namespace cortex::app {
@@ -305,21 +307,30 @@ void Application::buildDependencyGraph() noexcept {
           Logger::instance().info("Using InMemoryJobRepository");
           Logger::instance().info("Using InMemoryAnalysisRepository");
         }
+
+        metrics_ = std::make_shared<cortex::observability::PrometheusMetricsService>();
+        tracing_ = std::make_shared<cortex::observability::OpenTelemetryTracingService>();
         
         dispatchQueue_ = std::make_shared<cortex::worker::RedisStreamJobQueue>(
           "cortex-redis-publisher",
           "cortex:jobs",
-          "cortex-workers");
+          "cortex-workers",
+          metrics_,
+          tracing_);
 
         workerDispatchQueue_ = std::make_shared<cortex::worker::RedisStreamJobQueue>(
           "cortex-redis-workers",
           "cortex:jobs",
-          "cortex-workers");
+          "cortex-workers",
+          metrics_,
+          tracing_);
 
         // 4. Create RepositoryService (business logic layer)
         repositoryService_ = std::make_shared<RepositoryService>(jobRepository_, 
                                       nullptr,
-                                      dispatchQueue_);
+                                      dispatchQueue_,
+                                      metrics_,
+                                      tracing_);
         Logger::instance().info("Registered RepositoryService");
         
         // 5. Create RepositoryController (HTTP handler layer)
@@ -372,6 +383,8 @@ void Application::buildDependencyGraph() noexcept {
             technologyService_,
             repoHealthService_,
             insightService_,
+            metrics_,
+            tracing_,
             "cortex-worker-");
         Logger::instance().info("Registered JobWorkerPool with worker count: " + std::to_string(workerCount));
 
@@ -788,11 +801,63 @@ void Application::registerRoutes() {
     try {
         Logger::instance().info("Registering HTTP routes...");
 
+    auto extractTraceContext = [](const drogon::HttpRequestPtr& req)
+      -> std::optional<cortex::observability::TraceContext> {
+      if (!req) {
+        return std::nullopt;
+      }
+
+      const std::string traceparent = req->getHeader("traceparent");
+      const std::string tracestate = req->getHeader("tracestate");
+      if (traceparent.empty() && tracestate.empty()) {
+        return std::nullopt;
+      }
+
+      return cortex::observability::TraceContext{traceparent, tracestate};
+    };
+
+    auto startHttpSpan = [this, &extractTraceContext](const drogon::HttpRequestPtr& req,
+                              std::string_view method,
+                              std::string_view route) {
+      if (!tracing_) {
+        return std::shared_ptr<cortex::observability::ITraceSpan>();
+      }
+
+      auto span = tracing_->startSpan(
+        std::string(method) + " " + std::string(route),
+        cortex::observability::SpanKind::Server,
+        extractTraceContext(req));
+      if (span) {
+        span->setAttribute("http.request.method", method);
+        span->setAttribute("http.route", route);
+      }
+      return span;
+    };
+
+    auto observeHttp = [this](std::string_view method,
+                  std::string_view route,
+                  const drogon::HttpResponsePtr& resp,
+                  const std::chrono::steady_clock::time_point startedAt) {
+      if (!metrics_ || !resp) {
+        return;
+      }
+
+      const auto endedAt = std::chrono::steady_clock::now();
+      const auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        endedAt - startedAt).count();
+      metrics_->observeHttpRequest(
+        method,
+        route,
+        static_cast<int>(resp->statusCode()),
+        static_cast<double>(elapsedUs) / 1000000.0);
+    };
+
         // Register GET / — landing page
         drogon::app().registerHandler(
             "/",
-            [](const drogon::HttpRequestPtr& /*req*/,
+          [this, observeHttp](const drogon::HttpRequestPtr& /*req*/,
                std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            const auto requestStarted = std::chrono::steady_clock::now();
                 auto resp = drogon::HttpResponse::newHttpResponse();
                 resp->setStatusCode(drogon::k200OK);
                 resp->setContentTypeCode(drogon::CT_TEXT_HTML);
@@ -800,6 +865,7 @@ void Application::registerRoutes() {
                 resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                 resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
                 resp->setBody(kLandingPageHtml);
+            observeHttp("GET", "/", resp, requestStarted);
                 callback(resp);
             },
             {drogon::HttpMethod::Get}
@@ -811,12 +877,14 @@ void Application::registerRoutes() {
         // Bind to the handler instance's method
         drogon::app().registerHandler(
             "/health",
-            [](const drogon::HttpRequestPtr& req,
+          [this, observeHttp](const drogon::HttpRequestPtr& req,
                std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
-                auto corsCallback = [cb = std::move(callback)](const drogon::HttpResponsePtr& resp) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+            auto corsCallback = [cb = std::move(callback), requestStarted, observeHttp](const drogon::HttpResponsePtr& resp) {
                     resp->addHeader("Access-Control-Allow-Origin", "*");
                     resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                     resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+              observeHttp("GET", "/health", resp, requestStarted);
                     cb(resp);
                 };
                 healthHandler.handle(req, std::move(corsCallback));
@@ -829,12 +897,26 @@ void Application::registerRoutes() {
         // Register POST /repositories endpoint using handler member function
         drogon::app().registerHandler(
             "/repositories",
-            [](const drogon::HttpRequestPtr& req,
+          [this, observeHttp, startHttpSpan](const drogon::HttpRequestPtr& req,
                std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
-                auto corsCallback = [cb = std::move(callback)](const drogon::HttpResponsePtr& resp) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+            auto httpSpan = startHttpSpan(req, "POST", "/repositories");
+            auto httpScope = (tracing_ && httpSpan) ? tracing_->activateSpan(httpSpan) : nullptr;
+
+            auto corsCallback = [cb = std::move(callback), requestStarted, observeHttp, httpSpan](const drogon::HttpResponsePtr& resp) {
                     resp->addHeader("Access-Control-Allow-Origin", "*");
                     resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                     resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+              observeHttp("POST", "/repositories", resp, requestStarted);
+              if (httpSpan) {
+                httpSpan->setAttribute("http.response.status_code", static_cast<std::int64_t>(resp->statusCode()));
+                if (static_cast<int>(resp->statusCode()) >= 500) {
+                  httpSpan->setStatusError("http_5xx");
+                } else {
+                  httpSpan->setStatusOk();
+                }
+                httpSpan->end();
+              }
                     cb(resp);
                 };
                 repositoryHandler.submitRepository(req, std::move(corsCallback));
@@ -847,13 +929,30 @@ void Application::registerRoutes() {
         // Register GET /jobs/{jobId} endpoint using handler member function
         drogon::app().registerHandler(
             "/jobs/{jobId}",
-            [](const drogon::HttpRequestPtr& req,
+          [this, observeHttp, startHttpSpan](const drogon::HttpRequestPtr& req,
                std::function<void(const drogon::HttpResponsePtr&)>&& callback,
                const std::string& jobId) {
-                auto corsCallback = [cb = std::move(callback)](const drogon::HttpResponsePtr& resp) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+            auto httpSpan = startHttpSpan(req, "GET", "/jobs/{jobId}");
+            auto httpScope = (tracing_ && httpSpan) ? tracing_->activateSpan(httpSpan) : nullptr;
+            if (httpSpan) {
+              httpSpan->setAttribute("job.id", jobId);
+            }
+
+            auto corsCallback = [cb = std::move(callback), requestStarted, observeHttp, httpSpan](const drogon::HttpResponsePtr& resp) {
                     resp->addHeader("Access-Control-Allow-Origin", "*");
                     resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                     resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+              observeHttp("GET", "/jobs/{jobId}", resp, requestStarted);
+              if (httpSpan) {
+                httpSpan->setAttribute("http.response.status_code", static_cast<std::int64_t>(resp->statusCode()));
+                if (static_cast<int>(resp->statusCode()) >= 500) {
+                  httpSpan->setStatusError("http_5xx");
+                } else {
+                  httpSpan->setStatusOk();
+                }
+                httpSpan->end();
+              }
                     cb(resp);
                 };
                 jobHandler.getJob(req, std::move(corsCallback), jobId);
@@ -866,13 +965,30 @@ void Application::registerRoutes() {
         // Register GET /analysis/{jobId} endpoint
         drogon::app().registerHandler(
             "/analysis/{jobId}",
-            [](const drogon::HttpRequestPtr& req,
+          [this, observeHttp, startHttpSpan](const drogon::HttpRequestPtr& req,
                std::function<void(const drogon::HttpResponsePtr&)>&& callback,
                const std::string& jobId) {
-                auto corsCallback = [cb = std::move(callback)](const drogon::HttpResponsePtr& resp) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+            auto httpSpan = startHttpSpan(req, "GET", "/analysis/{jobId}");
+            auto httpScope = (tracing_ && httpSpan) ? tracing_->activateSpan(httpSpan) : nullptr;
+            if (httpSpan) {
+              httpSpan->setAttribute("job.id", jobId);
+            }
+
+            auto corsCallback = [cb = std::move(callback), requestStarted, observeHttp, httpSpan](const drogon::HttpResponsePtr& resp) {
                     resp->addHeader("Access-Control-Allow-Origin", "*");
                     resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                     resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+              observeHttp("GET", "/analysis/{jobId}", resp, requestStarted);
+              if (httpSpan) {
+                httpSpan->setAttribute("http.response.status_code", static_cast<std::int64_t>(resp->statusCode()));
+                if (static_cast<int>(resp->statusCode()) >= 500) {
+                  httpSpan->setStatusError("http_5xx");
+                } else {
+                  httpSpan->setStatusOk();
+                }
+                httpSpan->end();
+              }
                     cb(resp);
                 };
                 analysisHandler.getAnalysis(req, std::move(corsCallback), jobId);
@@ -882,33 +998,70 @@ void Application::registerRoutes() {
 
         Logger::instance().info("Registered route: GET /analysis/{jobId}");
 
+        drogon::app().registerHandler(
+          "/metrics",
+          [this, observeHttp](const drogon::HttpRequestPtr& /*req*/,
+             std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+
+            auto resp = drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(drogon::k200OK);
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            resp->setContentTypeString("text/plain; version=0.0.4; charset=utf-8");
+
+            if (metrics_) {
+              resp->setBody(metrics_->renderPrometheus());
+            } else {
+              resp->setBody("# HELP cortex_metrics_up Metrics subsystem availability\n"
+                      "# TYPE cortex_metrics_up gauge\n"
+                      "cortex_metrics_up 0\n");
+            }
+
+            observeHttp("GET", "/metrics", resp, requestStarted);
+            callback(resp);
+          },
+          {drogon::HttpMethod::Get}
+        );
+
+        Logger::instance().info("Registered route: GET /metrics");
+
         // Register OPTIONS handlers for CORS preflight requests on each endpoint
-        auto corsOptionsHandler = [](const drogon::HttpRequestPtr& req,
-                                     std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+        auto makeCorsOptionsHandler = [observeHttp](std::string routeLabel) {
+          return [routeLabel = std::move(routeLabel), observeHttp](const drogon::HttpRequestPtr& /*req*/,
+                       std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            const auto requestStarted = std::chrono::steady_clock::now();
             auto resp = drogon::HttpResponse::newHttpResponse();
             resp->setStatusCode(drogon::k200OK);
             resp->addHeader("Access-Control-Allow-Origin", "*");
             resp->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
             resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
             resp->addHeader("Access-Control-Max-Age", "86400");
+            observeHttp("OPTIONS", routeLabel, resp, requestStarted);
             callback(resp);
+          };
         };
 
         // OPTIONS for /repositories
-        drogon::app().registerHandler("/repositories", corsOptionsHandler, {drogon::HttpMethod::Options});
+        drogon::app().registerHandler("/repositories", makeCorsOptionsHandler("/repositories"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /repositories");
 
         // OPTIONS for /jobs/{jobId}
-        drogon::app().registerHandler("/jobs/{jobId}", corsOptionsHandler, {drogon::HttpMethod::Options});
+        drogon::app().registerHandler("/jobs/{jobId}", makeCorsOptionsHandler("/jobs/{jobId}"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /jobs/{jobId}");
 
         // OPTIONS for /analysis/{jobId}
-        drogon::app().registerHandler("/analysis/{jobId}", corsOptionsHandler, {drogon::HttpMethod::Options});
+        drogon::app().registerHandler("/analysis/{jobId}", makeCorsOptionsHandler("/analysis/{jobId}"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /analysis/{jobId}");
 
         // OPTIONS for /health
-        drogon::app().registerHandler("/health", corsOptionsHandler, {drogon::HttpMethod::Options});
+        drogon::app().registerHandler("/health", makeCorsOptionsHandler("/health"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /health");
+
+        // OPTIONS for /metrics
+        drogon::app().registerHandler("/metrics", makeCorsOptionsHandler("/metrics"), {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /metrics");
 
         Logger::instance().info("HTTP routes registered successfully");
 

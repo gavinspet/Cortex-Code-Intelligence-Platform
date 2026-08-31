@@ -14,6 +14,8 @@ JobWorkerPool::JobWorkerPool(
     std::shared_ptr<cortex::technology::TechnologyService> technologyService,
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService,
     std::shared_ptr<cortex::insight::RepositoryInsightService> insightService,
+    std::shared_ptr<cortex::observability::IMetrics> metrics,
+    std::shared_ptr<cortex::observability::ITracing> tracing,
     std::string consumerPrefix) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
@@ -22,6 +24,8 @@ JobWorkerPool::JobWorkerPool(
       technologyService_(std::move(technologyService)),
       healthService_(std::move(healthService)),
       insightService_(std::move(insightService)),
+            metrics_(std::move(metrics)),
+            tracing_(std::move(tracing)),
       workerCount_(workerCount),
       consumerPrefix_(std::move(consumerPrefix)) {}
 
@@ -49,7 +53,9 @@ void JobWorkerPool::start() noexcept {
                 metadataService_,
                 technologyService_,
                 healthService_,
-                insightService_);
+                insightService_,
+                metrics_,
+                tracing_);
             workers_.push_back(worker);
         }
 

@@ -17,6 +17,7 @@
 #include "utils/UrlValidator.h"
 #include "utils/UuidGenerator.h"
 #include <chrono>
+#include <cstdlib>
 
 namespace cortex::api::repositories {
 
@@ -28,6 +29,12 @@ using cortex::domain::JobStatus;
 
 SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryRequest& request) const noexcept {
     try {
+        auto submitSpan = tracing_ ? tracing_->startSpan("repository.submit") : nullptr;
+        auto submitScope = (tracing_ && submitSpan) ? tracing_->activateSpan(submitSpan) : nullptr;
+        if (submitSpan) {
+            submitSpan->setAttribute("storage.backend", std::getenv("STORAGE_BACKEND") ? std::getenv("STORAGE_BACKEND") : "inmemory");
+        }
+
         const auto submitStart = std::chrono::steady_clock::now();
 
         // Log incoming submission
@@ -38,24 +45,41 @@ SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryReque
         
         if (request.isEmpty()) {
             Logger::instance().warn("Repository submission rejected: empty URL");
+            if (submitSpan) {
+                submitSpan->setStatusError("invalid_request");
+                submitSpan->end();
+            }
             return {SubmitRepositoryStatus::INVALID_REQUEST, std::nullopt};
         }
 
         if (!UrlValidator::isValidRepositoryUrl(url)) {
             Logger::instance().warn(std::string("Repository submission rejected: invalid URL - ") + 
                                    std::string(url));
+            if (submitSpan) {
+                submitSpan->setStatusError("invalid_request");
+                submitSpan->end();
+            }
             return {SubmitRepositoryStatus::INVALID_REQUEST, std::nullopt};
         }
 
-        // Generate UUID for this job
+        auto jobCreateSpan = tracing_ ? tracing_->startSpan("job.create") : nullptr;
+        auto jobCreateScope = (tracing_ && jobCreateSpan) ? tracing_->activateSpan(jobCreateSpan) : nullptr;
+
         std::string jobId = UuidGenerator::generate();
         Logger::instance().info(std::string("Generated job ID: ") + jobId);
+        if (jobCreateSpan) {
+            jobCreateSpan->setAttribute("job.id", jobId);
+            jobCreateSpan->setStatusOk();
+            jobCreateSpan->end();
+        }
 
         // Create job
         auto createdAt = std::chrono::system_clock::now();
         Job job(jobId, std::string(url), JobStatus::QUEUED, createdAt);
 
         // Store job in repository
+        auto persistSpan = tracing_ ? tracing_->startSpan("storage.job.persist") : nullptr;
+        auto persistScope = (tracing_ && persistSpan) ? tracing_->activateSpan(persistSpan) : nullptr;
         const auto mysqlSaveStart = std::chrono::steady_clock::now();
         jobRepository_->save(job);
         const auto mysqlSaveEnd = std::chrono::steady_clock::now();
@@ -64,10 +88,17 @@ SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryReque
         Logger::instance().info(
             "submit_timing jobId=" + jobId + " mysql_save_ms=" + std::to_string(mysqlSaveMs));
         Logger::instance().info(std::string("Job stored in repository: ") + jobId);
+        if (persistSpan) {
+            persistSpan->setAttribute("job.id", jobId);
+            persistSpan->setAttribute("storage.backend", std::getenv("STORAGE_BACKEND") ? std::getenv("STORAGE_BACKEND") : "inmemory");
+            persistSpan->setStatusOk();
+            persistSpan->end();
+        }
 
         if (dispatchQueue_) {
             const auto publishStart = std::chrono::steady_clock::now();
-            if (!dispatchQueue_->publishJob(jobId)) {
+            const auto traceContext = tracing_ ? tracing_->currentContext() : std::nullopt;
+            if (!dispatchQueue_->publishJob(jobId, 0, traceContext)) {
                 const auto publishEnd = std::chrono::steady_clock::now();
                 const auto publishMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                     publishEnd - publishStart).count();
@@ -76,6 +107,11 @@ SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryReque
                     " status=failed");
                 Logger::instance().warn(
                     std::string("Backpressure or dispatch publish failure for job: ") + jobId);
+                if (submitSpan) {
+                    submitSpan->setAttribute("job.id", jobId);
+                    submitSpan->setStatusError("backpressured");
+                    submitSpan->end();
+                }
                 return {SubmitRepositoryStatus::BACKPRESSURED, std::nullopt};
             }
             const auto publishEnd = std::chrono::steady_clock::now();
@@ -102,12 +138,36 @@ SubmitRepositoryResult RepositoryService::submitRepository(const RepositoryReque
             submitEnd - submitStart).count();
         Logger::instance().info("submit_timing jobId=" + jobId + " total_ms=" + std::to_string(totalMs));
 
+        if (metrics_) {
+            metrics_->incrementJobsSubmitted();
+        }
+
+        if (submitSpan) {
+            submitSpan->setAttribute("job.id", jobId);
+            submitSpan->setStatusOk();
+            submitSpan->end();
+        }
+
         return {SubmitRepositoryStatus::ACCEPTED, job};
 
     } catch (const std::exception& e) {
+        if (tracing_) {
+            auto span = tracing_->startSpan("repository.submit");
+            if (span) {
+                span->setStatusError("internal_error");
+                span->end();
+            }
+        }
         Logger::instance().error(std::string("Exception in submitRepository: ") + e.what());
         return {SubmitRepositoryStatus::INTERNAL_ERROR, std::nullopt};
     } catch (...) {
+        if (tracing_) {
+            auto span = tracing_->startSpan("repository.submit");
+            if (span) {
+                span->setStatusError("internal_error");
+                span->end();
+            }
+        }
         Logger::instance().critical("Unknown exception in submitRepository");
         return {SubmitRepositoryStatus::INTERNAL_ERROR, std::nullopt};
     }

@@ -28,6 +28,10 @@
 #include "health/InMemoryRepositoryHealthRepository.h"
 #include "insight/RepositoryInsightService.h"
 #include "insight/InMemoryRepositoryInsightRepository.h"
+#include "observability/IMetrics.h"
+#include "observability/PrometheusMetricsService.h"
+#include "observability/ITracing.h"
+#include "observability/OpenTelemetryTracingService.h"
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -165,6 +169,8 @@ private:
     
     // Repository endpoint services
     std::shared_ptr<cortex::domain::IJobRepository> jobRepository_;
+    std::shared_ptr<cortex::observability::IMetrics> metrics_;
+    std::shared_ptr<cortex::observability::ITracing> tracing_;
     std::shared_ptr<RepositoryService> repositoryService_;
     std::shared_ptr<RepositoryController> repositoryController_;
     

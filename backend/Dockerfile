@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libspdlog-dev \
     libjsoncpp-dev \
     libhiredis-dev \
+    libcurl4-openssl-dev \
+    libprotobuf-dev \
+    protobuf-compiler \
     libmysqlcppconn-dev \
     libssl-dev \
     uuid-dev \
@@ -54,6 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libspdlog1.12 \
     libjsoncpp25 \
     libhiredis1.1.0 \
+    libprotobuf32 \
     libmysqlcppconn7t64 \
     libssl3 \
     libcares2 \
@@ -66,9 +70,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy binary and config from builder
 COPY --from=builder /cortex-src/build/bin/cortex /app/cortex
 COPY --from=builder /cortex-src/config/config.json /app/config/config.json
+COPY --from=builder /cortex-src/build/lib/libopentelemetry*.so* /usr/local/lib/
 
 # Create logs directory
-RUN mkdir -p /app/logs
+RUN mkdir -p /app/logs && ldconfig
 
 # Expose port
 EXPOSE 8080

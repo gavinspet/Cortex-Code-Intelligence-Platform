@@ -8,6 +8,8 @@
 #include "technology/TechnologyService.h"
 #include "health/RepositoryHealthService.h"
 #include "insight/RepositoryInsightService.h"
+#include "observability/IMetrics.h"
+#include "observability/ITracing.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -27,6 +29,8 @@ public:
         std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr,
         std::shared_ptr<cortex::health::RepositoryHealthService> healthService = nullptr,
         std::shared_ptr<cortex::insight::RepositoryInsightService> insightService = nullptr,
+        std::shared_ptr<cortex::observability::IMetrics> metrics = nullptr,
+        std::shared_ptr<cortex::observability::ITracing> tracing = nullptr,
         std::string consumerPrefix = "cortex-worker-") noexcept;
 
     ~JobWorkerPool() noexcept;
@@ -51,6 +55,8 @@ private:
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService_;
     std::shared_ptr<cortex::insight::RepositoryInsightService> insightService_;
+    std::shared_ptr<cortex::observability::IMetrics> metrics_;
+    std::shared_ptr<cortex::observability::ITracing> tracing_;
 
     size_t workerCount_;
     std::string consumerPrefix_;

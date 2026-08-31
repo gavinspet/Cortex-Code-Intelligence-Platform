@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
+include(FetchContent)
+
 # Project Definition
 project(CortexCodeIntelligencePlatform VERSION 1.0.0 LANGUAGES CXX)
 
@@ -39,6 +41,8 @@ set(SOURCES
     src/worker/JobWorker.cpp
     src/worker/JobWorkerPool.cpp
     src/worker/RedisStreamJobQueue.cpp
+    src/observability/PrometheusMetricsService.cpp
+    src/observability/OpenTelemetryTracingService.cpp
     src/core/di/ServiceContainer.cpp
     src/github/GitHubClient.cpp
     src/github/GitHubMetadataService.cpp
@@ -63,7 +67,43 @@ target_include_directories(cortex PRIVATE
 # Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, fmt, MySQL Connector/C++, OpenSSL, ZLIB, UUID, and c-ares
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
-target_link_libraries(cortex PRIVATE drogon trantor jsoncpp spdlog fmt mysqlcppconn OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB uuid cares)
+
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(WITH_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WITH_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(WITH_OTLP_GRPC OFF CACHE BOOL "" FORCE)
+set(WITH_OTLP_HTTP ON CACHE BOOL "" FORCE)
+set(WITH_ZIPKIN OFF CACHE BOOL "" FORCE)
+set(WITH_PROMETHEUS OFF CACHE BOOL "" FORCE)
+set(WITH_STL ON CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    opentelemetry_cpp
+    GIT_REPOSITORY https://github.com/open-telemetry/opentelemetry-cpp.git
+    GIT_TAG v1.16.1
+)
+FetchContent_MakeAvailable(opentelemetry_cpp)
+
+find_library(HIREDIS_LIB hiredis REQUIRED)
+target_link_libraries(cortex PRIVATE
+    drogon
+    trantor
+    jsoncpp
+    spdlog
+    fmt
+    mysqlcppconn
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    ZLIB::ZLIB
+    uuid
+    cares
+    ${HIREDIS_LIB}
+    opentelemetry_trace
+    opentelemetry_resources
+    opentelemetry_exporter_otlp_http
+    opentelemetry_http_client_curl
+    opentelemetry_sdk
+)
 # Compiler Flags (optional, for better warnings)
 if(MSVC)
     target_compile_options(cortex PRIVATE /W4)

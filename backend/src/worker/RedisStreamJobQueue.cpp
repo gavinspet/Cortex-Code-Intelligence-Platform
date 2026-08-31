@@ -6,18 +6,36 @@
 #include <drogon/nosql/RedisResult.h>
 #include <chrono>
 #include <cstdlib>
+#include <cstdint>
 
 namespace cortex::worker {
 
 using cortex::logging::Logger;
 
+namespace {
+
+std::string resolveStorageBackend() {
+    if (const char* value = std::getenv("STORAGE_BACKEND")) {
+        if (*value != '\0') {
+            return std::string(value);
+        }
+    }
+    return "inmemory";
+}
+
+} // namespace
+
 RedisStreamJobQueue::RedisStreamJobQueue(std::string redisClientName,
                                          std::string streamName,
-                                         std::string groupName) noexcept
+                                         std::string groupName,
+                                         std::shared_ptr<cortex::observability::IMetrics> metrics,
+                                         std::shared_ptr<cortex::observability::ITracing> tracing) noexcept
     : redisClientName_(std::move(redisClientName)),
       streamName_(std::move(streamName)),
       groupName_(std::move(groupName)),
-      deadLetterStreamName_(streamName_ + ":dead") {}
+      deadLetterStreamName_(streamName_ + ":dead"),
+      metrics_(std::move(metrics)),
+      tracing_(std::move(tracing)) {}
 
 long long RedisStreamJobQueue::resolveMaxBacklog() const noexcept {
     constexpr long long kDefaultMaxBacklog = 64;
@@ -94,6 +112,10 @@ bool RedisStreamJobQueue::isBackpressured() noexcept {
             parser,
             "XINFO GROUPS %s",
             streamName_.c_str());
+
+        if (metrics_) {
+            metrics_->setJobsQueueDepth(static_cast<double>(load));
+        }
         const auto cmdEnd = std::chrono::steady_clock::now();
         const auto end = std::chrono::steady_clock::now();
 
@@ -185,8 +207,18 @@ bool RedisStreamJobQueue::ensureConsumerGroup() noexcept {
     }
 }
 
-bool RedisStreamJobQueue::publishJob(const std::string& jobId, int attempt) noexcept {
+bool RedisStreamJobQueue::publishJob(const std::string& jobId,
+                                     int attempt,
+                                     const std::optional<cortex::observability::TraceContext>& traceContext) noexcept {
     try {
+        auto span = tracing_ ? tracing_->startSpan("redis.stream.xadd", cortex::observability::SpanKind::Producer, traceContext) : nullptr;
+        if (span) {
+            span->setAttribute("job.id", jobId);
+            span->setAttribute("job.attempt", static_cast<std::int64_t>(attempt));
+            span->setAttribute("storage.backend", resolveStorageBackend());
+        }
+        auto scope = (tracing_ && span) ? tracing_->activateSpan(span) : nullptr;
+
         const auto publishStart = std::chrono::steady_clock::now();
 
         if (!ensureConsumerGroup()) {
@@ -214,10 +246,12 @@ bool RedisStreamJobQueue::publishJob(const std::string& jobId, int attempt) noex
             [](const drogon::nosql::RedisResult& r) {
                 return r.asString();
             },
-            "XADD %s * job_id %s attempt %d",
+            "XADD %s * job_id %s attempt %d traceparent %s tracestate %s",
             streamName_.c_str(),
             jobId.c_str(),
-            attempt);
+            attempt,
+            traceContext.has_value() ? traceContext->traceparent.c_str() : "",
+            traceContext.has_value() ? traceContext->tracestate.c_str() : "");
         const auto xaddEnd = std::chrono::steady_clock::now();
         const auto publishEnd = std::chrono::steady_clock::now();
 
@@ -238,8 +272,24 @@ bool RedisStreamJobQueue::publishJob(const std::string& jobId, int attempt) noex
             "Redis XADD published job " + jobId +
             " attempt=" + std::to_string(attempt) +
             " as message " + messageId);
+
+        if (span) {
+            span->setAttribute("redis.stream", streamName_);
+            span->setAttribute("redis.message_id", messageId);
+            span->setStatusOk();
+            span->end();
+        }
         return true;
     } catch (const std::exception& e) {
+        if (tracing_) {
+            auto errSpan = tracing_->startSpan("redis.stream.xadd", cortex::observability::SpanKind::Producer, traceContext);
+            if (errSpan) {
+                errSpan->setAttribute("job.id", jobId);
+                errSpan->setAttribute("job.attempt", static_cast<std::int64_t>(attempt));
+                errSpan->setStatusError("redis_xadd_failed");
+                errSpan->end();
+            }
+        }
         Logger::instance().error("Failed to publish job to Redis stream: " + std::string(e.what()));
         return false;
     }
@@ -287,6 +337,10 @@ std::optional<StreamJobMessage> RedisStreamJobQueue::parseStreamMessage(
             } catch (...) {
                 parsed.attempt = 0;
             }
+        } else if (key == "traceparent") {
+            parsed.traceparent = value;
+        } else if (key == "tracestate") {
+            parsed.tracestate = value;
         }
     }
 
@@ -301,7 +355,19 @@ std::optional<StreamJobMessage> RedisStreamJobQueue::consumeNext(const std::stri
                                                                  int blockMs) noexcept {
     (void)blockMs;
     try {
+        auto span = tracing_ ? tracing_->startSpan("redis.stream.consume", cortex::observability::SpanKind::Consumer) : nullptr;
+        if (span) {
+            span->setAttribute("worker.id", consumerName);
+            span->setAttribute("redis.stream", streamName_);
+            span->setAttribute("redis.group", groupName_);
+            span->setAttribute("storage.backend", resolveStorageBackend());
+        }
+
         if (!ensureConsumerGroup()) {
+            if (span) {
+                span->setStatusError("redis_group_unavailable");
+                span->end();
+            }
             return std::nullopt;
         }
 
@@ -327,6 +393,13 @@ std::optional<StreamJobMessage> RedisStreamJobQueue::consumeNext(const std::stri
             "0");
 
         if (pending.has_value()) {
+            if (span) {
+                span->setAttribute("job.id", pending->jobId);
+                span->setAttribute("job.attempt", static_cast<std::int64_t>(pending->attempt));
+                span->setAttribute("redis.message_id", pending->streamId);
+                span->setStatusOk();
+                span->end();
+            }
             return pending;
         }
 
@@ -347,8 +420,24 @@ std::optional<StreamJobMessage> RedisStreamJobQueue::consumeNext(const std::stri
             ">"
         );
 
+        if (fresh.has_value() && span) {
+            span->setAttribute("job.id", fresh->jobId);
+            span->setAttribute("job.attempt", static_cast<std::int64_t>(fresh->attempt));
+            span->setAttribute("redis.message_id", fresh->streamId);
+        }
+        if (span) {
+            span->setStatusOk();
+            span->end();
+        }
         return fresh;
     } catch (const std::exception& e) {
+        if (tracing_) {
+            auto errSpan = tracing_->startSpan("redis.stream.consume", cortex::observability::SpanKind::Consumer);
+            if (errSpan) {
+                errSpan->setStatusError("redis_consume_error");
+                errSpan->end();
+            }
+        }
         Logger::instance().error("Redis consume error: " + std::string(e.what()));
         return std::nullopt;
     }
@@ -356,9 +445,19 @@ std::optional<StreamJobMessage> RedisStreamJobQueue::consumeNext(const std::stri
 
 bool RedisStreamJobQueue::ack(const std::string& streamId) noexcept {
     try {
+        auto span = tracing_ ? tracing_->startSpan("redis.stream.xack", cortex::observability::SpanKind::Client) : nullptr;
+        if (span) {
+            span->setAttribute("redis.stream", streamName_);
+            span->setAttribute("redis.group", groupName_);
+            span->setAttribute("redis.message_id", streamId);
+        }
         auto client = drogon::app().getRedisClient(redisClientName_);
         if (!client) {
             Logger::instance().error("Redis client unavailable while acknowledging message");
+            if (span) {
+                span->setStatusError("redis_client_unavailable");
+                span->end();
+            }
             return false;
         }
         std::lock_guard<std::mutex> commandLock(commandMutex_);
@@ -371,19 +470,54 @@ bool RedisStreamJobQueue::ack(const std::string& streamId) noexcept {
             groupName_.c_str(),
             streamId.c_str());
 
-        return acked > 0;
+        const bool ok = acked > 0;
+        if (span) {
+            if (ok) {
+                span->setStatusOk();
+            } else {
+                span->setStatusError("redis_xack_zero");
+            }
+            span->end();
+        }
+        return ok;
     } catch (const std::exception& e) {
+        if (tracing_) {
+            auto errSpan = tracing_->startSpan("redis.stream.xack", cortex::observability::SpanKind::Client);
+            if (errSpan) {
+                errSpan->setAttribute("redis.message_id", streamId);
+                errSpan->setStatusError("redis_xack_error");
+                errSpan->end();
+            }
+        }
         Logger::instance().error("Redis ack error: " + std::string(e.what()));
         return false;
     }
 }
 
 bool RedisStreamJobQueue::publishDeadLetter(const StreamJobMessage& message,
-                                            const std::string& reason) noexcept {
+                                            const std::string& reason,
+                                            const std::optional<cortex::observability::TraceContext>& traceContext) noexcept {
     try {
+        std::optional<cortex::observability::TraceContext> parent = traceContext;
+        if (!parent.has_value() && (!message.traceparent.empty() || !message.tracestate.empty())) {
+            parent = cortex::observability::TraceContext{message.traceparent, message.tracestate};
+        }
+
+        auto span = tracing_ ? tracing_->startSpan("redis.stream.dead_letter.xadd", cortex::observability::SpanKind::Producer, parent) : nullptr;
+        if (span) {
+            span->setAttribute("job.id", message.jobId);
+            span->setAttribute("job.attempt", static_cast<std::int64_t>(message.attempt));
+            span->setAttribute("redis.stream", deadLetterStreamName_);
+            span->setAttribute("dead_letter.reason", reason);
+        }
+
         auto client = drogon::app().getRedisClient(redisClientName_);
         if (!client) {
             Logger::instance().error("Redis client unavailable while publishing dead-letter");
+            if (span) {
+                span->setStatusError("redis_client_unavailable");
+                span->end();
+            }
             return false;
         }
 
@@ -392,19 +526,36 @@ bool RedisStreamJobQueue::publishDeadLetter(const StreamJobMessage& message,
             [](const drogon::nosql::RedisResult& r) {
                 return r.asString();
             },
-            "XADD %s * job_id %s attempt %d original_stream_id %s reason %s",
+            "XADD %s * job_id %s attempt %d original_stream_id %s reason %s traceparent %s tracestate %s",
             deadLetterStreamName_.c_str(),
             message.jobId.c_str(),
             message.attempt,
             message.streamId.c_str(),
-            reason.c_str());
+            reason.c_str(),
+            parent.has_value() ? parent->traceparent.c_str() : "",
+            parent.has_value() ? parent->tracestate.c_str() : "");
 
         Logger::instance().warn(
             "Published dead-letter message for job " + message.jobId +
             " attempt=" + std::to_string(message.attempt) +
             " dead_letter_id=" + messageId);
+
+        if (span) {
+            span->setAttribute("redis.message_id", messageId);
+            span->setStatusOk();
+            span->end();
+        }
         return true;
     } catch (const std::exception& e) {
+        if (tracing_) {
+            auto errSpan = tracing_->startSpan("redis.stream.dead_letter.xadd", cortex::observability::SpanKind::Producer);
+            if (errSpan) {
+                errSpan->setAttribute("job.id", message.jobId);
+                errSpan->setAttribute("job.attempt", static_cast<std::int64_t>(message.attempt));
+                errSpan->setStatusError("redis_dead_letter_failed");
+                errSpan->end();
+            }
+        }
         Logger::instance().error("Failed to publish dead-letter message: " + std::string(e.what()));
         return false;
     }
