@@ -38,8 +38,89 @@ services:
     networks:
       - cortex-network
 
+  cortex:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cortex-backend
+    restart: always
+    environment:
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-mysql}
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cortex}
+      MYSQL_USER: ${MYSQL_USER:-cortex}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cortex}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      JOB_MAX_BACKLOG: ${JOB_MAX_BACKLOG:-64}
+      JOB_MAX_RETRIES: ${JOB_MAX_RETRIES:-3}
+      WORKER_COUNT: ${WORKER_COUNT:-4}
+    ports:
+      - "${CORTEX_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cortex-network
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: cortex-prometheus
+    restart: always
+    environment:
+      CORTEX_METRICS_TARGET: ${CORTEX_METRICS_TARGET:-cortex:8080}
+      PROMETHEUS_SCRAPE_INTERVAL: ${PROMETHEUS_SCRAPE_INTERVAL:-15s}
+      PROMETHEUS_EVALUATION_INTERVAL: ${PROMETHEUS_EVALUATION_INTERVAL:-15s}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        sed -e "s|__CORTEX_METRICS_TARGET__|$${CORTEX_METRICS_TARGET}|g" \
+            -e "s|__PROMETHEUS_SCRAPE_INTERVAL__|$${PROMETHEUS_SCRAPE_INTERVAL}|g" \
+            -e "s|__PROMETHEUS_EVALUATION_INTERVAL__|$${PROMETHEUS_EVALUATION_INTERVAL}|g" \
+            /etc/prometheus/prometheus.yml.tmpl > /etc/prometheus/prometheus.yml
+        exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml.tmpl:/etc/prometheus/prometheus.yml.tmpl:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      cortex:
+        condition: service_started
+    networks:
+      - cortex-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: cortex-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      PROMETHEUS_DATASOURCE_URL: ${PROMETHEUS_DATASOURCE_URL:-http://prometheus:9090}
+    volumes:
+      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - cortex-network
+
 volumes:
   mysql_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:

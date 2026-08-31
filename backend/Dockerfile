@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libspdlog-dev \
     libjsoncpp-dev \
+    libhiredis-dev \
     libmysqlcppconn-dev \
     libssl-dev \
     uuid-dev \
@@ -52,11 +53,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libspdlog1.12 \
     libjsoncpp25 \
+    libhiredis1.1.0 \
     libmysqlcppconn7t64 \
     libssl3 \
     libcares2 \
     zlib1g \
     ca-certificates \
+    curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
