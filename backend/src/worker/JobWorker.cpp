@@ -11,12 +11,16 @@ namespace cortex::worker {
 JobWorker::JobWorker(
     std::shared_ptr<cortex::domain::IJobRepository> repository,
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
+        std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue,
+        std::string consumerName,
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService,
     std::shared_ptr<cortex::technology::TechnologyService> technologyService,
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService,
     std::shared_ptr<cortex::insight::RepositoryInsightService> insightService) noexcept
     : repository_(std::move(repository)),
       analysisRepository_(std::move(analysisRepository)),
+            dispatchQueue_(std::move(dispatchQueue)),
+            consumerName_(std::move(consumerName)),
       metadataService_(std::move(metadataService)),
       technologyService_(std::move(technologyService)),
       healthService_(std::move(healthService)),
@@ -82,13 +86,62 @@ void JobWorker::notifyJobAvailable() noexcept {
 void JobWorker::workerLoop() noexcept {
     cortex::logging::Logger::instance().info("Worker thread started processing jobs");
 
+    if (dispatchQueue_) {
+        if (!dispatchQueue_->ensureConsumerGroup()) {
+            cortex::logging::Logger::instance().error("Redis consumer group initialization failed");
+        }
+    }
+
     while (!shutdown_requested_.load()) {
         try {
-            // Wait for notification or timeout
+            if (dispatchQueue_) {
+                auto message = dispatchQueue_->consumeNext(consumerName_, 1000);
+                if (!message.has_value()) {
+                    continue;
+                }
+
+                auto job = repository_->findById(message->jobId);
+                if (!job.has_value()) {
+                    cortex::logging::Logger::instance().error(
+                        std::string("Redis message references unknown jobId: ") + message->jobId);
+                    if (!dispatchQueue_->ack(message->streamId)) {
+                        cortex::logging::Logger::instance().error(
+                            std::string("Failed to ack unknown-job message: ") + message->streamId);
+                    }
+                    continue;
+                }
+
+                const auto status = job->getStatus();
+                if (status == cortex::domain::JobStatus::COMPLETED ||
+                    status == cortex::domain::JobStatus::FAILED)
+                {
+                    if (!dispatchQueue_->ack(message->streamId)) {
+                        cortex::logging::Logger::instance().error(
+                            std::string("Failed to XACK terminal-job message: ") + message->streamId);
+                    }
+                    continue;
+                }
+
+                const bool processed = processJob(job.value());
+                if (processed) {
+                    if (!dispatchQueue_->ack(message->streamId)) {
+                        cortex::logging::Logger::instance().error(
+                            std::string("Failed to XACK message: ") + message->streamId);
+                    }
+                } else {
+                    cortex::logging::Logger::instance().warn(
+                        std::string("Job processing failed; leaving message pending for recovery: ") +
+                        message->streamId);
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+
+                continue;
+            }
+
+            // Wait for notification or periodic wake-up.
             std::unique_lock<std::mutex> lock(work_mutex_);
             work_cv_.wait_for(lock, std::chrono::seconds(1), [this] {
-                return shutdown_requested_.load() || 
-                       repository_->dequeueNextJob().has_value();
+                return shutdown_requested_.load();
             });
 
             // Check if shutdown was requested during wait
@@ -97,10 +150,10 @@ void JobWorker::workerLoop() noexcept {
             }
 
             // Try to get next job
+            lock.unlock();
             auto job = repository_->dequeueNextJob();
             if (job) {
-                lock.unlock();  // Release lock before processing
-                processJob(job.value());
+                (void)processJob(job.value());
             }
 
         } catch (const std::exception& e) {
@@ -112,7 +165,7 @@ void JobWorker::workerLoop() noexcept {
     cortex::logging::Logger::instance().info("Worker thread exiting");
 }
 
-void JobWorker::processJob(const cortex::domain::Job& job) noexcept {
+bool JobWorker::processJob(const cortex::domain::Job& job) noexcept {
     try {
         const std::string& jobId = job.getId();
         const std::string& repoUrl = job.getRepositoryUrl();
@@ -121,30 +174,37 @@ void JobWorker::processJob(const cortex::domain::Job& job) noexcept {
         cortex::logging::Logger::instance().info(
             std::string("Job dequeued: ") + jobId);
 
-        // Update status to RUNNING and set startedAt timestamp
+        // Update status to RUNNING unless this is a recovered in-flight message.
         auto now = std::chrono::system_clock::now();
-        if (!repository_->updateStatus(jobId, cortex::domain::JobStatus::RUNNING)) {
-            cortex::logging::Logger::instance().warn(
-                std::string("Failed to update job status to RUNNING: ") + jobId);
-            return;
-        }
-        if (!repository_->setStartedAt(jobId, now)) {
-            cortex::logging::Logger::instance().warn(
-                std::string("Failed to set startedAt timestamp: ") + jobId);
+        if (job.getStatus() == cortex::domain::JobStatus::RUNNING) {
+            cortex::logging::Logger::instance().info(
+                std::string("Resuming RUNNING job from Redis pending state: ") + jobId);
+        } else {
+            if (!repository_->updateStatus(jobId, cortex::domain::JobStatus::RUNNING)) {
+                cortex::logging::Logger::instance().warn(
+                    std::string("Failed to update job status to RUNNING: ") + jobId);
+                return false;
+            }
+            if (!repository_->setStartedAt(jobId, now)) {
+                cortex::logging::Logger::instance().warn(
+                    std::string("Failed to set startedAt timestamp: ") + jobId);
+            }
         }
 
         cortex::logging::Logger::instance().info(
             std::string("Job started processing: ") + jobId);
 
         // Run real git clone and analysis
-        analyzeRepository(jobId, repoUrl);
+        if (!analyzeRepository(jobId, repoUrl)) {
+            return false;
+        }
 
         // Update status to COMPLETED and set completedAt timestamp
         auto completedNow = std::chrono::system_clock::now();
         if (!repository_->updateStatus(jobId, cortex::domain::JobStatus::COMPLETED)) {
             cortex::logging::Logger::instance().warn(
                 std::string("Failed to update job status to COMPLETED: ") + jobId);
-            return;
+            return false;
         }
         if (!repository_->setCompletedAt(jobId, completedNow)) {
             cortex::logging::Logger::instance().warn(
@@ -153,14 +213,16 @@ void JobWorker::processJob(const cortex::domain::Job& job) noexcept {
 
         cortex::logging::Logger::instance().info(
             std::string("Job completed successfully: ") + jobId);
+        return true;
 
     } catch (const std::exception& e) {
         cortex::logging::Logger::instance().error(
             std::string("Error processing job: ") + e.what());
+        return false;
     }
 }
 
-void JobWorker::analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept {
+    bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept {
     namespace fs = std::filesystem;
     try {
         const std::string workspaceBase = "/tmp/cortex-workspace";
@@ -190,7 +252,7 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
         if (!pipe) {
             cortex::logging::Logger::instance().error("Failed to run git clone for job: " + jobId);
             repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
-            return;
+            return false;
         }
         while (fgets(buf.data(), buf.size(), pipe.get())) {
             output += buf.data();
@@ -201,7 +263,7 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
             cortex::logging::Logger::instance().error(
                 "git clone failed for job " + jobId + ": " + output);
             repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
-            return;
+            return false;
         }
 
         cortex::logging::Logger::instance().info("Clone complete: " + clonePath);
@@ -322,10 +384,12 @@ void JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
                     + " size=" + insights->estimatedProjectSize);
             }
         }
+        return true;
     } catch (const std::exception& e) {
         cortex::logging::Logger::instance().error(
             std::string("Error in analyzeRepository: ") + e.what());
         repository_->updateStatus(jobId, cortex::domain::JobStatus::FAILED);
+        return false;
     }
 }
 

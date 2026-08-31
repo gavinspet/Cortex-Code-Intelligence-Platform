@@ -17,6 +17,7 @@
 #include "api/repositories/RepositoryRequest.h"
 #include "domain/Job.h"
 #include "domain/IJobRepository.h"
+#include "worker/IJobDispatchQueue.h"
 #include "logging/Logger.h"
 #include <memory>
 #include <optional>
@@ -57,9 +58,11 @@ public:
      */
     explicit RepositoryService(
         std::shared_ptr<cortex::domain::IJobRepository> jobRepository,
-        std::shared_ptr<cortex::worker::WorkerService> workerService = nullptr) noexcept
+                std::shared_ptr<cortex::worker::WorkerService> workerService = nullptr,
+                std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue = nullptr) noexcept
         : jobRepository_(std::move(jobRepository)),
-          workerService_(std::move(workerService)) {}
+                    workerService_(std::move(workerService)),
+                    dispatchQueue_(std::move(dispatchQueue)) {}
 
     /**
      * Set worker service after construction (for DI circular dependency resolution)
@@ -68,6 +71,10 @@ public:
      */
     void setWorkerService(std::shared_ptr<cortex::worker::WorkerService> workerService) noexcept {
         workerService_ = std::move(workerService);
+    }
+
+    void setDispatchQueue(std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue) noexcept {
+        dispatchQueue_ = std::move(dispatchQueue);
     }
 
     /**
@@ -89,6 +96,7 @@ public:
 private:
     std::shared_ptr<cortex::domain::IJobRepository> jobRepository_;
     std::shared_ptr<cortex::worker::WorkerService> workerService_;
+    std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue_;
 };
 
 } // namespace cortex::api::repositories

@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <atomic>
 #include <cppconn/connection.h>
 
 namespace cortex::database {
@@ -99,8 +100,7 @@ private:
     std::string user_;
     std::string password_;
     std::string database_;
-    std::shared_ptr<sql::Connection> connection_;
-    bool initialized_;
+    std::atomic<bool> initialized_{false};
 };
 
 } // namespace cortex::database

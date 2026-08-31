@@ -15,6 +15,9 @@
 #include "app/ApplicationFactory.h"
 #include <iostream>
 #include <stdexcept>
+#include <memory>
+
+using namespace cortex::app;
 
 /**
  * Main Entry Point
@@ -33,14 +36,16 @@
 int main() {
     try {
         // Create application with all dependencies from config.json
-        auto app = cortex::app::ApplicationFactory::create("config/config.json");
+        std::unique_ptr<Application> app = ApplicationFactory::create("config/config.json");
 
         // Run application (blocking until shutdown)
         return app->run();
-    } catch (const std::exception& e) {
+    } 
+    catch (const std::exception& e) {
         std::cerr << "Fatal error: " << e.what() << std::endl;
         return 1;
-    } catch (...) {
+    } 
+    catch (...) {
         std::cerr << "Unknown fatal error" << std::endl;
         return 1;
     }

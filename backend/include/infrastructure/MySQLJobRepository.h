@@ -154,7 +154,7 @@ private:
      * @return Job constructed from row data
      */
     static cortex::domain::Job buildJobFromResultSet(
-        std::shared_ptr<sql::ResultSet>& resultSet) noexcept;
+        std::shared_ptr<sql::ResultSet>& resultSet);
 };
 
 } // namespace cortex::infrastructure

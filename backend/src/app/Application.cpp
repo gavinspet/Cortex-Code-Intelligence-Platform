@@ -7,6 +7,10 @@
 #include <csignal>
 #include <atomic>
 #include <functional>
+#include <cstdlib>
+#include <algorithm>
+#include <cctype>
+#include <utility>
 
 namespace cortex::app {
 
@@ -184,19 +188,100 @@ void Application::buildDependencyGraph() noexcept {
         Logger::instance().info("Registered HealthController");
 
         // Repository services
-        // 3. Create job repository — try MySQL, fall back to InMemory
-        bool mysqlOk = cortex::database::Database::instance().initialize();
-        if (mysqlOk) {
-            jobRepository_ = std::make_shared<cortex::infrastructure::MySQLJobRepository>();
-            Logger::instance().info("Using MySQLJobRepository");
+        // 3. Select storage backend via environment configuration.
+        std::string storageBackend = "memory";
+        if (config_) {
+          auto configuredBackend = config_->getString("storage.backend");
+          if (configuredBackend.has_value() && !configuredBackend->empty()) {
+            storageBackend = *configuredBackend;
+          }
+        }
+        if (const char* storageBackendEnv = std::getenv("STORAGE_BACKEND")) {
+          storageBackend = storageBackendEnv;
+        }
+        std::transform(storageBackend.begin(), storageBackend.end(), storageBackend.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+        bool mysqlOk = false;
+        if (storageBackend == "mysql") {
+          std::string mysqlHost = "127.0.0.1";
+          int mysqlPort = 3306;
+          std::string mysqlDatabase = "cortex";
+          std::string mysqlUser = "cortex";
+          std::string mysqlPassword = "cortex";
+
+          if (config_) {
+            auto dbHost = config_->getString("database.host");
+            if (dbHost.has_value() && !dbHost->empty()) {
+              mysqlHost = *dbHost;
+            }
+
+            auto dbPort = config_->getUInt("database.port");
+            if (dbPort.has_value()) {
+              mysqlPort = static_cast<int>(*dbPort);
+            }
+
+            auto dbName = config_->getString("database.name");
+            if (dbName.has_value() && !dbName->empty()) {
+              mysqlDatabase = *dbName;
+            }
+          }
+
+          if (const char* value = std::getenv("MYSQL_HOST")) {
+            mysqlHost = value;
+          }
+          if (const char* value = std::getenv("MYSQL_PORT")) {
+            try {
+              mysqlPort = std::stoi(value);
+            } catch (...) {
+              mysqlPort = 3306;
+            }
+          }
+          if (const char* value = std::getenv("MYSQL_DATABASE")) {
+            mysqlDatabase = value;
+          }
+          if (const char* value = std::getenv("MYSQL_USER")) {
+            mysqlUser = value;
+          }
+          if (const char* value = std::getenv("MYSQL_PASSWORD")) {
+            mysqlPassword = value;
+          }
+
+          mysqlOk = cortex::database::Database::instance().initialize(
+            mysqlHost,
+            mysqlPort,
+            mysqlUser,
+            mysqlPassword,
+            mysqlDatabase);
+
+          if (!mysqlOk) {
+            Logger::instance().warn("MySQL unavailable - falling back to in-memory repositories");
+          }
         } else {
-            Logger::instance().warn("MySQL unavailable — falling back to InMemoryJobRepository");
-            jobRepository_ = std::make_shared<cortex::infrastructure::InMemoryJobRepository>();
+          Logger::instance().info("Using in-memory repositories (STORAGE_BACKEND != mysql)");
+        }
+
+        if (mysqlOk) {
+          jobRepository_ = std::make_shared<cortex::infrastructure::MySQLJobRepository>();
+          analysisRepository_ = std::make_shared<cortex::infrastructure::MySQLAnalysisRepository>();
+          Logger::instance().info("Using MySQLJobRepository");
+          Logger::instance().info("Using MySQLAnalysisRepository");
+        } else {
+          jobRepository_ = std::make_shared<cortex::infrastructure::InMemoryJobRepository>();
+          analysisRepository_ = std::make_shared<cortex::analysis::InMemoryAnalysisRepository>();
+          Logger::instance().info("Using InMemoryJobRepository");
+          Logger::instance().info("Using InMemoryAnalysisRepository");
         }
         
+        dispatchQueue_ = std::make_shared<cortex::worker::RedisStreamJobQueue>(
+          "cortex-redis-dispatch",
+          "cortex:jobs",
+          "cortex-workers");
+
         // 4. Create RepositoryService (business logic layer)
         repositoryService_ = std::make_shared<RepositoryService>(jobRepository_, 
-                                                                  nullptr);  // Will set workerService after creating it
+                                      nullptr,
+                                      dispatchQueue_);
         Logger::instance().info("Registered RepositoryService");
         
         // 5. Create RepositoryController (HTTP handler layer)
@@ -213,9 +298,6 @@ void Application::buildDependencyGraph() noexcept {
         Logger::instance().info("Registered JobController");
 
         // Background worker services
-        // 8. Create analysis repository (in-memory)
-        analysisRepository_ = std::make_shared<cortex::analysis::InMemoryAnalysisRepository>();
-        Logger::instance().info("Registered InMemoryAnalysisRepository");
 
         // 9. GitHub metadata components (needed before JobWorker)
         metadataRepository_ = std::make_shared<cortex::github::InMemoryGitHubMetadataRepository>();
@@ -244,7 +326,7 @@ void Application::buildDependencyGraph() noexcept {
 
         // 13. Create JobWorker with all services injected
         jobWorker_ = std::make_shared<JobWorker>(
-            jobRepository_, analysisRepository_,
+          jobRepository_, analysisRepository_, dispatchQueue_, "worker-1",
             gitHubMetadataService_, technologyService_, repoHealthService_, insightService_);
         Logger::instance().info("Registered JobWorker (all enrichment services)");
 
@@ -262,6 +344,7 @@ void Application::buildDependencyGraph() noexcept {
         // Now set the workerService in repositoryService for notifications
         if (repositoryService_) {
             repositoryService_->setWorkerService(workerService_);
+          repositoryService_->setDispatchQueue(dispatchQueue_);
             Logger::instance().info("Wired WorkerService into RepositoryService");
         }
         
@@ -281,10 +364,15 @@ int Application::run() noexcept {
         initializeDrogon();
         registerRoutes();
 
-        // Start background worker before HTTP server
+        // Start background worker when event loop is active (Redis client is available then).
         if (workerService_) {
-            workerService_->start();
-            Logger::instance().info("Background job worker started");
+          std::weak_ptr<WorkerService> weakWorker = workerService_;
+          drogon::app().getLoop()->runAfter(1.0, [weakWorker]() {
+            if (auto worker = weakWorker.lock()) {
+              worker->start();
+              Logger::instance().info("Background job worker started");
+            }
+          });
         }
 
         // Register signal handlers for graceful shutdown
@@ -330,6 +418,37 @@ void Application::initializeDrogon() {
     // Configure Drogon
     app.addListener(host, port);
     app.setThreadNum(threads);
+
+    std::string redisHost = "127.0.0.1";
+    unsigned short redisPort = 6379;
+    std::string redisPassword;
+
+    if (const char* value = std::getenv("REDIS_HOST")) {
+      redisHost = value;
+    }
+    if (const char* value = std::getenv("REDIS_PORT")) {
+      try {
+        redisPort = static_cast<unsigned short>(std::stoi(value));
+      } catch (...) {
+        redisPort = 6379;
+      }
+    }
+    if (const char* value = std::getenv("REDIS_PASSWORD")) {
+      redisPassword = value;
+    }
+
+      app.createRedisClient(redisHost,
+                             redisPort,
+                             "cortex-redis-dispatch",
+                             redisPassword,
+                             1,
+                             false,
+                             -1.0,
+                             0,
+                             "");
+
+    Logger::instance().info(
+      "Redis client configured: host=" + redisHost + ":" + std::to_string(redisPort));
 
     Logger::instance().info("Drogon configured: host=" + host + ", port=" + std::to_string(port) + 
              ", threads=" + std::to_string(threads));

@@ -12,10 +12,12 @@
 #include "analysis/AnalysisService.h"
 #include "analysis/AnalysisController.h"
 #include "infrastructure/MySQLJobRepository.h"
+#include "infrastructure/MySQLAnalysisRepository.h"
 #include "infrastructure/InMemoryJobRepository.h"
 #include "database/Database.h"
 #include "worker/JobWorker.h"
 #include "worker/WorkerService.h"
+#include "worker/RedisStreamJobQueue.h"
 #include "github/GitHubClient.h"
 #include "github/GitHubMetadataService.h"
 #include "github/InMemoryGitHubMetadataRepository.h"
@@ -172,6 +174,7 @@ private:
     // Background worker services
     std::shared_ptr<JobWorker> jobWorker_;
     std::shared_ptr<WorkerService> workerService_;
+    std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue_;
 
     // Analysis services
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;

@@ -2,6 +2,7 @@
 
 #include "domain/IJobRepository.h"
 #include "analysis/IAnalysisRepository.h"
+#include "worker/IJobDispatchQueue.h"
 #include "github/GitHubMetadataService.h"
 #include "technology/TechnologyService.h"
 #include "health/RepositoryHealthService.h"
@@ -36,6 +37,8 @@ public:
     explicit JobWorker(
         std::shared_ptr<cortex::domain::IJobRepository> repository,
         std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository,
+        std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue = nullptr,
+        std::string consumerName = "worker-1",
         std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr,
         std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr,
         std::shared_ptr<cortex::health::RepositoryHealthService> healthService = nullptr,
@@ -89,18 +92,20 @@ private:
      * 
      * @param job The job to process
      */
-    void processJob(const cortex::domain::Job& job) noexcept;
+    bool processJob(const cortex::domain::Job& job) noexcept;
 
     /**
      * Simulate analysis with logging and delay
      * 
      * @param repositoryUrl URL of repository being analyzed
      */
-    void analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept;
+    bool analyzeRepository(const std::string& jobId, const std::string& repoUrl) noexcept;
 
     // Dependencies (injected)
     std::shared_ptr<cortex::domain::IJobRepository> repository_;
     std::shared_ptr<cortex::analysis::IAnalysisRepository> analysisRepository_;
+    std::shared_ptr<cortex::worker::IJobDispatchQueue> dispatchQueue_;
+    std::string consumerName_;
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService_;

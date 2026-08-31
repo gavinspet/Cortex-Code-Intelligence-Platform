@@ -19,6 +19,7 @@
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
+#include <cppconn/exception.h>
 #include <cppconn/sqlstring.h>
 #include <chrono>
 #include <sstream>
@@ -60,7 +61,7 @@ std::chrono::system_clock::time_point MySQLJobRepository::datetimeStringToTimePo
 }
 
 Job MySQLJobRepository::buildJobFromResultSet(
-    std::shared_ptr<sql::ResultSet>& rs) noexcept
+    std::shared_ptr<sql::ResultSet>& rs)
 {
     try {
         std::string id = rs->getString("id");
@@ -110,6 +111,14 @@ void MySQLJobRepository::save(const Job& job) noexcept {
         pstmt->execute();
         Logger::instance().info(std::string("Inserted job into MySQL: ") + job.getId());
 
+    } catch (const sql::SQLException& e) {
+        if (e.getSQLState() == "23000") {
+            Logger::instance().warn(std::string("Duplicate job ID ignored: ") + job.getId());
+        } else {
+            Logger::instance().error(std::string("SQL error saving job to database: ") + e.what());
+            Logger::instance().error(std::string("SQLState: ") + e.getSQLState());
+            Logger::instance().error(std::string("Error Code: ") + std::to_string(e.getErrorCode()));
+        }
     } catch (const std::exception& e) {
         Logger::instance().error(std::string("Error saving job to database: ") + e.what());
     }

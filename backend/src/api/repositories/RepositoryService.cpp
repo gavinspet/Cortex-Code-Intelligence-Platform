@@ -57,6 +57,15 @@ std::optional<Job> RepositoryService::submitRepository(const RepositoryRequest& 
         jobRepository_->save(job);
         Logger::instance().info(std::string("Job stored in repository: ") + jobId);
 
+        if (dispatchQueue_) {
+            if (!dispatchQueue_->publishJob(jobId)) {
+                Logger::instance().error(
+                    std::string("Job persisted but Redis publish failed: ") + jobId);
+                return std::nullopt;
+            }
+            Logger::instance().info(std::string("Job published to Redis stream: ") + jobId);
+        }
+
         // Notify worker of new job
         if (workerService_) {
             workerService_->notifyJobAvailable();

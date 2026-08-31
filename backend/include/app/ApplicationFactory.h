@@ -54,6 +54,7 @@ public:
     static std::unique_ptr<Application> create(const std::string& configFilePath);
 
 private:
+    // prevents instantiation of ApplicationFactory, since it only has static methods
     ApplicationFactory() = default;
 };
 
