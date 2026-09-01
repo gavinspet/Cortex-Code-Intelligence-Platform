@@ -67,6 +67,7 @@ target_include_directories(cortex PRIVATE
 # Find and Link all dependencies: Drogon, trantor, jsoncpp, spdlog, fmt, MySQL Connector/C++, OpenSSL, ZLIB, UUID, and c-ares
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(CURL REQUIRED)
 
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(WITH_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -98,6 +99,7 @@ target_link_libraries(cortex PRIVATE
     uuid
     cares
     ${HIREDIS_LIB}
+    CURL::libcurl
     opentelemetry_trace
     opentelemetry_resources
     opentelemetry_exporter_otlp_http

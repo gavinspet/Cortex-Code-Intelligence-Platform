@@ -1,6 +1,6 @@
 /**
  * @file GitHubClient.cpp
- * @brief GitHub REST API client using curl subprocess for HTTPS reliability.
+ * @brief GitHub REST API client using native libcurl.
  * @project Cortex Code Intelligence Platform
  * @author Kartick Kumar Ghosh
  * @github https://github.com/gavinspet
@@ -10,11 +10,10 @@
  */
 #include "github/GitHubClient.h"
 #include "logging/Logger.h"
+#include <curl/curl.h>
 #include <json/json.h>
-#include <array>
 #include <chrono>
-#include <cstdio>
-#include <memory>
+#include <cstdlib>
 #include <sstream>
 
 namespace cortex::github {
@@ -40,6 +39,42 @@ static int safeInt(const Json::Value& v, const char* key, int fallback = 0) noex
             return v[key].asInt();
     } catch (...) {}
     return fallback;
+}
+
+static std::string getEnvOrDefault(const char* name, const std::string& fallback) {
+    const char* value = std::getenv(name);
+    if (!value || *value == '\0') {
+        return fallback;
+    }
+    return std::string(value);
+}
+
+static long getEnvLongOrDefault(const char* name, long fallback) {
+    const char* value = std::getenv(name);
+    if (!value || *value == '\0') {
+        return fallback;
+    }
+
+    try {
+        long parsed = std::stol(value);
+        return parsed > 0 ? parsed : fallback;
+    } catch (...) {
+        return fallback;
+    }
+}
+
+static size_t writeBodyCallback(void* contents, size_t size, size_t nmemb, void* userp) {
+    const size_t totalSize = size * nmemb;
+    auto* responseBody = static_cast<std::string*>(userp);
+    responseBody->append(static_cast<char*>(contents), totalSize);
+    return totalSize;
+}
+
+static std::string trimTrailingSlash(std::string value) {
+    while (!value.empty() && value.back() == '/') {
+        value.pop_back();
+    }
+    return value;
 }
 
 // ─── Response Parser ──────────────────────────────────────────────────────────
@@ -102,7 +137,7 @@ GitHubMetadata GitHubClient::parseResponse(const Json::Value& json,
     return m;
 }
 
-// ─── HTTP fetch via curl subprocess ──────────────────────────────────────────
+// ─── HTTP fetch via libcurl ───────────────────────────────────────────────────
 
 std::optional<GitHubMetadata> GitHubClient::fetchMetadata(
     const std::string& owner,
@@ -111,56 +146,59 @@ std::optional<GitHubMetadata> GitHubClient::fetchMetadata(
     auto& log = Logger::instance();
 
     try {
-        const std::string url =
-            "https://api.github.com/repos/" + owner + "/" + repo;
+        const std::string apiBaseUrl =
+            trimTrailingSlash(getEnvOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"));
+        const std::string token = getEnvOrDefault("GITHUB_TOKEN", "");
+        const long timeoutMs = getEnvLongOrDefault("GITHUB_HTTP_TIMEOUT_MS", 10000);
+        const long connectTimeoutMs = getEnvLongOrDefault("GITHUB_HTTP_CONNECT_TIMEOUT_MS", 3000);
+
+        const std::string url = apiBaseUrl + "/repos/" + owner + "/" + repo;
 
         log.info("GitHub API request: GET " + url);
         const auto startTime = std::chrono::steady_clock::now();
 
-        // Build curl command: write HTTP status code on last line,
-        // follow redirects, 10-second timeout, minimal noise.
-        const std::string cmd =
-            "curl -s --max-time 10 "
-            "-H 'User-Agent: CortexCodeIntelligencePlatform/1.0' "
-            "-H 'Accept: application/vnd.github.v3+json' "
-            "-H 'X-GitHub-Api-Version: 2022-11-28' "
-            "-w '\\n%{http_code}' "
-            "'" + url + "' 2>/dev/null";
-
-        std::array<char, 4096> buf{};
-        std::string output;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(
-            popen(cmd.c_str(), "r"), pclose);
-
-        if (!pipe) {
-            log.error("GitHubClient: failed to spawn curl for " + owner + "/" + repo);
+        CURL* curl = curl_easy_init();
+        if (!curl) {
+            log.error("GitHubClient: failed to initialize curl");
             return std::nullopt;
         }
 
-        while (fgets(buf.data(), buf.size(), pipe.get()))
-            output += buf.data();
+        struct curl_slist* headers = nullptr;
+        headers = curl_slist_append(headers, "User-Agent: CortexCodeIntelligencePlatform/1.0");
+        headers = curl_slist_append(headers, "Accept: application/vnd.github.v3+json");
+        headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
 
-        const int exitCode = pclose(pipe.release());
+        if (!token.empty()) {
+            const std::string auth = "Authorization: Bearer " + token;
+            headers = curl_slist_append(headers, auth.c_str());
+        }
 
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::string responseBody;
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeBodyCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, connectTimeoutMs);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeoutMs);
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+
+        const CURLcode curlResult = curl_easy_perform(curl);
+
+        long httpStatus = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatus);
+
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+
+        const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - startTime).count();
 
-        if (exitCode != 0) {
-            log.warn("GitHubClient: curl exited " + std::to_string(exitCode)
-                     + " for " + owner + "/" + repo);
+        if (curlResult != CURLE_OK) {
+            log.warn("GitHubClient: request failed for " + owner + "/" + repo
+                     + " error='" + std::string(curl_easy_strerror(curlResult)) + "'");
             return std::nullopt;
         }
-
-        // Separate JSON body and status code (last line)
-        const auto lastNewline = output.rfind('\n', output.size() - 2);
-        if (lastNewline == std::string::npos) {
-            log.warn("GitHubClient: unexpected curl output for " + owner + "/" + repo);
-            return std::nullopt;
-        }
-
-        const int httpStatus = std::stoi(
-            output.substr(lastNewline + 1));
-        const std::string body = output.substr(0, lastNewline);
 
         if (httpStatus == 404) {
             log.warn("GitHub API: repository not found: " + owner + "/" + repo);
@@ -178,11 +216,16 @@ std::optional<GitHubMetadata> GitHubClient::fetchMetadata(
             return std::nullopt;
         }
 
+        if (responseBody.empty()) {
+            log.warn("GitHubClient: empty response body for " + owner + "/" + repo);
+            return std::nullopt;
+        }
+
         // Parse JSON
         Json::Value json;
         Json::CharReaderBuilder builder;
         std::string errs;
-        std::istringstream ss(body);
+        std::istringstream ss(responseBody);
         if (!Json::parseFromStream(builder, ss, &json, &errs)) {
             log.warn("GitHubClient: JSON parse error for " + owner + "/" + repo
                      + ": " + errs);
@@ -192,7 +235,7 @@ std::optional<GitHubMetadata> GitHubClient::fetchMetadata(
         auto metadata = parseResponse(json);
         log.info("GitHub API response: " + owner + "/" + repo
                  + " ★" + std::to_string(metadata.stars)
-                 + "  (" + std::to_string(elapsed) + "ms)");
+                 + "  (" + std::to_string(elapsedMs) + "ms)");
 
         return metadata;
 

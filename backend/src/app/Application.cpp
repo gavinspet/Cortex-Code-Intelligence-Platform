@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include "api/jobs/JobResponse.h"
 #include "logging/Logger.h"
 #include <drogon/HttpAppFramework.h>
 #include <drogon/drogon.h>
@@ -12,6 +13,7 @@
 #include <cctype>
 #include <cstdint>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 namespace cortex::app {
@@ -187,6 +189,87 @@ static size_t resolveWorkerCount() noexcept {
       std::to_string(kDefaultWorkerCount));
     return kDefaultWorkerCount;
   }
+}
+
+static int resolveMaxRetryAttempts() noexcept {
+  constexpr int kDefaultRetries = 3;
+
+  const char* raw = std::getenv("JOB_MAX_RETRIES");
+  if (!raw) {
+    return kDefaultRetries;
+  }
+
+  try {
+    const int parsed = std::stoi(raw);
+    return parsed < 0 ? kDefaultRetries : parsed;
+  } catch (...) {
+    return kDefaultRetries;
+  }
+}
+
+struct MetricsSummarySnapshot {
+  long long jobsSubmitted{0};
+  long long jobsCompleted{0};
+  long long jobsFailed{0};
+  long long jobsRetried{0};
+  long long jobsDeadLettered{0};
+  long long jobsActive{0};
+};
+
+static std::optional<double> parsePrometheusScalar(const std::string& body,
+                                                   std::string_view metricName) {
+  std::istringstream input(body);
+  std::string line;
+  const std::string prefix(metricName);
+  while (std::getline(input, line)) {
+    if (!line.starts_with(prefix)) {
+      continue;
+    }
+    if (line.size() <= prefix.size() || std::isspace(static_cast<unsigned char>(line[prefix.size()])) == 0) {
+      continue;
+    }
+
+    try {
+      return std::stod(line.substr(prefix.size()));
+    } catch (...) {
+      return std::nullopt;
+    }
+  }
+
+  return std::nullopt;
+}
+
+static MetricsSummarySnapshot parseMetricsSummary(const std::string& body) {
+  MetricsSummarySnapshot snapshot;
+  snapshot.jobsSubmitted = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_submitted_total").value_or(0.0));
+  snapshot.jobsCompleted = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_completed_total").value_or(0.0));
+  snapshot.jobsFailed = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_failed_total").value_or(0.0));
+  snapshot.jobsRetried = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_retried_total").value_or(0.0));
+  snapshot.jobsDeadLettered = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_dead_lettered_total").value_or(0.0));
+  snapshot.jobsActive = static_cast<long long>(parsePrometheusScalar(body, "cortex_jobs_active").value_or(0.0));
+  return snapshot;
+}
+
+static std::optional<std::string> traceIdFromTraceparent(const std::string& traceparent) {
+  if (traceparent.empty()) {
+    return std::nullopt;
+  }
+
+  const auto first = traceparent.find('-');
+  if (first == std::string::npos) {
+    return std::nullopt;
+  }
+  const auto second = traceparent.find('-', first + 1);
+  if (second == std::string::npos || second <= first + 1) {
+    return std::nullopt;
+  }
+
+  const std::string traceId = traceparent.substr(first + 1, second - first - 1);
+  return traceId.size() == 32 ? std::optional<std::string>{traceId} : std::nullopt;
+}
+
+static Json::Value jsonNull() {
+  return Json::Value(Json::nullValue);
 }
 
 // Signal handler
@@ -395,7 +478,7 @@ void Application::buildDependencyGraph() noexcept {
         // 14. Create AnalysisService and AnalysisController (with all enrichment services)
         analysisService_ = std::make_shared<cortex::analysis::AnalysisService>(analysisRepository_);
         analysisController_ = std::make_shared<cortex::analysis::AnalysisController>(
-            analysisService_, gitHubMetadataService_, technologyService_,
+          analysisService_, jobRepository_, gitHubMetadataService_, technologyService_,
             repoHealthService_, insightService_);
         Logger::instance().info("Registered AnalysisService and AnalysisController");
         
@@ -926,6 +1009,130 @@ void Application::registerRoutes() {
         
         Logger::instance().info("Registered route: POST /repositories");
         
+        drogon::app().registerHandler(
+          "/jobs/{jobId}/details",
+          [this, observeHttp, startHttpSpan](const drogon::HttpRequestPtr& req,
+               std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+               const std::string& jobId) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+            auto httpSpan = startHttpSpan(req, "GET", "/jobs/{jobId}/details");
+            auto httpScope = (tracing_ && httpSpan) ? tracing_->activateSpan(httpSpan) : nullptr;
+            if (httpSpan) {
+              httpSpan->setAttribute("job.id", jobId);
+            }
+
+            drogon::HttpResponsePtr resp;
+
+            try {
+              Json::Value body;
+              auto job = jobRepository_ ? jobRepository_->findById(jobId) : std::nullopt;
+              if (!job.has_value()) {
+                body["success"] = false;
+                body["message"] = "Job not found";
+                resp = drogon::HttpResponse::newHttpJsonResponse(body);
+                resp->setStatusCode(drogon::k404NotFound);
+              } else {
+                auto redisQueue = std::dynamic_pointer_cast<cortex::worker::RedisStreamJobQueue>(workerDispatchQueue_ ? workerDispatchQueue_ : dispatchQueue_);
+                const auto dispatch = redisQueue ? redisQueue->getJobDispatchSnapshot(jobId) : std::nullopt;
+                const auto maxRetries = resolveMaxRetryAttempts();
+                const auto traceId = dispatch.has_value() ? traceIdFromTraceparent(dispatch->traceparent) : std::nullopt;
+
+                Json::Value jobJson;
+                jobJson["id"] = job->getId();
+                jobJson["repositoryUrl"] = job->getRepositoryUrl();
+                jobJson["status"] = std::string(cortex::domain::jobStatusToString(job->getStatus()));
+                jobJson["createdAt"] = cortex::api::jobs::JobResponse::timePointToString(job->getCreatedAt());
+                if (job->getStartedAt()) {
+                  jobJson["startedAt"] = cortex::api::jobs::JobResponse::timePointToString(job->getStartedAt().value());
+                } else {
+                  jobJson["startedAt"] = jsonNull();
+                }
+                if (job->getCompletedAt()) {
+                  jobJson["completedAt"] = cortex::api::jobs::JobResponse::timePointToString(job->getCompletedAt().value());
+                } else {
+                  jobJson["completedAt"] = jsonNull();
+                }
+                const auto durationMs = job->getCompletedAt().has_value()
+                  ? std::chrono::duration_cast<std::chrono::milliseconds>(job->getCompletedAt().value() - job->getCreatedAt()).count()
+                  : (job->getStartedAt().has_value()
+                      ? std::chrono::duration_cast<std::chrono::milliseconds>(job->getStartedAt().value() - job->getCreatedAt()).count()
+                      : -1);
+                jobJson["durationMs"] = durationMs >= 0 ? Json::Value(static_cast<Json::Int64>(durationMs)) : jsonNull();
+
+                Json::Value reliability;
+                reliability["attempt"] = dispatch.has_value() ? Json::Value(dispatch->attempt + 1) : jsonNull();
+                reliability["maxRetries"] = maxRetries;
+                if (dispatch.has_value() && dispatch->deadLettered && !dispatch->failureReason.empty()) {
+                  reliability["retryable"] = dispatch->failureReason == "max_retry_exceeded";
+                } else {
+                  reliability["retryable"] = jsonNull();
+                }
+                reliability["deadLettered"] = dispatch.has_value() ? dispatch->deadLettered : false;
+                reliability["failureReason"] = dispatch.has_value() && !dispatch->failureReason.empty()
+                  ? Json::Value(dispatch->failureReason)
+                  : jsonNull();
+
+                Json::Value queue;
+                queue["stream"] = redisQueue ? redisQueue->streamName() : "cortex:jobs";
+                queue["consumerGroup"] = redisQueue ? redisQueue->groupName() : "cortex-workers";
+                queue["streamId"] = dispatch.has_value() && !dispatch->streamId.empty()
+                  ? Json::Value(dispatch->streamId)
+                  : jsonNull();
+                if (dispatch.has_value() && !dispatch->consumerName.empty()) {
+                  queue["consumer"] = dispatch->consumerName;
+                }
+                if (dispatch.has_value()) {
+                  queue["pending"] = dispatch->pending;
+                  if (dispatch->deliveryCount > 0) {
+                    queue["deliveryCount"] = static_cast<Json::Int64>(dispatch->deliveryCount);
+                  }
+                }
+
+                Json::Value observability;
+                observability["traceAvailable"] = traceId.has_value();
+                observability["traceId"] = traceId.has_value() ? Json::Value(*traceId) : jsonNull();
+
+                Json::Value data;
+                data["job"] = jobJson;
+                data["reliability"] = reliability;
+                data["queue"] = queue;
+                data["observability"] = observability;
+
+                body["success"] = true;
+                body["data"] = data;
+                resp = drogon::HttpResponse::newHttpJsonResponse(body);
+                resp->setStatusCode(drogon::k200OK);
+              }
+            } catch (const std::exception& e) {
+              Json::Value body;
+              body["success"] = false;
+              body["message"] = "Internal server error";
+              resp = drogon::HttpResponse::newHttpJsonResponse(body);
+              resp->setStatusCode(drogon::k500InternalServerError);
+              Logger::instance().error(std::string("Error in GET /jobs/{jobId}/details: ") + e.what());
+            }
+
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+            observeHttp("GET", "/jobs/{jobId}/details", resp, requestStarted);
+            if (httpSpan) {
+              httpSpan->setAttribute("http.response.status_code", static_cast<std::int64_t>(resp->statusCode()));
+              if (static_cast<int>(resp->statusCode()) >= 500) {
+                httpSpan->setStatusError("http_5xx");
+              } else {
+                httpSpan->setStatusOk();
+              }
+              httpSpan->end();
+            }
+            callback(resp);
+          },
+          {drogon::HttpMethod::Get}
+        );
+
+        Logger::instance().info("Registered route: GET /jobs/{jobId}/details");
+
         // Register GET /jobs/{jobId} endpoint using handler member function
         drogon::app().registerHandler(
             "/jobs/{jobId}",
@@ -1027,6 +1234,75 @@ void Application::registerRoutes() {
 
         Logger::instance().info("Registered route: GET /metrics");
 
+        drogon::app().registerHandler(
+          "/system/summary",
+          [this, observeHttp](const drogon::HttpRequestPtr& /*req*/,
+             std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            const auto requestStarted = std::chrono::steady_clock::now();
+
+            Json::Value body;
+            body["success"] = true;
+            Json::Value data;
+
+            auto redisQueue = std::dynamic_pointer_cast<cortex::worker::RedisStreamJobQueue>(workerDispatchQueue_ ? workerDispatchQueue_ : dispatchQueue_);
+            const auto queueSnapshot = redisQueue ? redisQueue->getQueueGroupSnapshot() : std::nullopt;
+            const auto metricsSummary = metrics_ ? parseMetricsSummary(metrics_->renderPrometheus()) : MetricsSummarySnapshot{};
+
+            Json::Value workers;
+            workers["configured"] = static_cast<Json::Int64>(resolveWorkerCount());
+            if (queueSnapshot.has_value()) {
+              workers["active"] = static_cast<Json::Int64>(queueSnapshot->consumers.size());
+            }
+            data["workers"] = workers;
+
+            if (queueSnapshot.has_value()) {
+              Json::Value queue;
+              queue["stream"] = queueSnapshot->stream;
+              queue["consumerGroup"] = queueSnapshot->consumerGroup;
+              queue["pending"] = static_cast<Json::Int64>(queueSnapshot->pending);
+              queue["lag"] = static_cast<Json::Int64>(queueSnapshot->lag);
+              queue["consumers"] = static_cast<Json::Int64>(queueSnapshot->consumers.size());
+              data["queue"] = queue;
+            }
+
+            Json::Value jobs;
+            jobs["submitted"] = static_cast<Json::Int64>(metricsSummary.jobsSubmitted);
+            jobs["completed"] = static_cast<Json::Int64>(metricsSummary.jobsCompleted);
+            jobs["failed"] = static_cast<Json::Int64>(metricsSummary.jobsFailed);
+            jobs["retried"] = static_cast<Json::Int64>(metricsSummary.jobsRetried);
+            jobs["deadLettered"] = static_cast<Json::Int64>(metricsSummary.jobsDeadLettered);
+            jobs["active"] = static_cast<Json::Int64>(metricsSummary.jobsActive);
+            data["jobs"] = jobs;
+
+            if (metricsSummary.jobsSubmitted > 0) {
+              Json::Value reliability;
+              reliability["successRate"] = (static_cast<double>(metricsSummary.jobsCompleted) / static_cast<double>(metricsSummary.jobsSubmitted)) * 100.0;
+              reliability["failureRate"] = (static_cast<double>(metricsSummary.jobsFailed) / static_cast<double>(metricsSummary.jobsSubmitted)) * 100.0;
+              reliability["retryRate"] = (static_cast<double>(metricsSummary.jobsRetried) / static_cast<double>(metricsSummary.jobsSubmitted)) * 100.0;
+              data["reliability"] = reliability;
+            }
+
+            Json::Value observability;
+            observability["metrics"] = metrics_ != nullptr;
+            observability["tracing"] = tracing_ != nullptr;
+            data["observability"] = observability;
+
+            body["data"] = data;
+
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
+            resp->setStatusCode(drogon::k200OK);
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+            observeHttp("GET", "/system/summary", resp, requestStarted);
+            callback(resp);
+          },
+          {drogon::HttpMethod::Get}
+        );
+
+        Logger::instance().info("Registered route: GET /system/summary");
+
         // Register OPTIONS handlers for CORS preflight requests on each endpoint
         auto makeCorsOptionsHandler = [observeHttp](std::string routeLabel) {
           return [routeLabel = std::move(routeLabel), observeHttp](const drogon::HttpRequestPtr& /*req*/,
@@ -1055,6 +1331,10 @@ void Application::registerRoutes() {
         drogon::app().registerHandler("/analysis/{jobId}", makeCorsOptionsHandler("/analysis/{jobId}"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /analysis/{jobId}");
 
+        // OPTIONS for /jobs/{jobId}/details
+        drogon::app().registerHandler("/jobs/{jobId}/details", makeCorsOptionsHandler("/jobs/{jobId}/details"), {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /jobs/{jobId}/details");
+
         // OPTIONS for /health
         drogon::app().registerHandler("/health", makeCorsOptionsHandler("/health"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /health");
@@ -1062,6 +1342,10 @@ void Application::registerRoutes() {
         // OPTIONS for /metrics
         drogon::app().registerHandler("/metrics", makeCorsOptionsHandler("/metrics"), {drogon::HttpMethod::Options});
         Logger::instance().info("Registered route: OPTIONS /metrics");
+
+        // OPTIONS for /system/summary
+        drogon::app().registerHandler("/system/summary", makeCorsOptionsHandler("/system/summary"), {drogon::HttpMethod::Options});
+        Logger::instance().info("Registered route: OPTIONS /system/summary");
 
         Logger::instance().info("HTTP routes registered successfully");
 

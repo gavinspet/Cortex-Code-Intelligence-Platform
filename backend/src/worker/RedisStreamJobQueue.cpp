@@ -23,6 +23,58 @@ std::string resolveStorageBackend() {
     return "inmemory";
 }
 
+template <typename T>
+std::optional<T> readIntegerField(const std::vector<drogon::nosql::RedisResult>& kv,
+                                  const std::string& fieldName) {
+    for (size_t i = 0; i + 1 < kv.size(); i += 2) {
+        if (kv[i].asString() == fieldName) {
+            if (kv[i + 1].isNil()) {
+                return std::nullopt;
+            }
+            return static_cast<T>(kv[i + 1].asInteger());
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> readStringField(const std::vector<drogon::nosql::RedisResult>& kv,
+                                           const std::string& fieldName) {
+    for (size_t i = 0; i + 1 < kv.size(); i += 2) {
+        if (kv[i].asString() == fieldName) {
+            if (kv[i + 1].isNil()) {
+                return std::nullopt;
+            }
+            return kv[i + 1].asString();
+        }
+    }
+    return std::nullopt;
+}
+
+void populateDispatchFields(const std::vector<drogon::nosql::RedisResult>& fields,
+                            JobDispatchSnapshot& snapshot,
+                            std::string* originalStreamId = nullptr,
+                            std::string* reason = nullptr) {
+    for (size_t i = 0; i + 1 < fields.size(); i += 2) {
+        const std::string key = fields[i].asString();
+        const std::string value = fields[i + 1].asString();
+        if (key == "attempt") {
+            try {
+                snapshot.attempt = std::stoi(value);
+            } catch (...) {
+                snapshot.attempt = 0;
+            }
+        } else if (key == "traceparent") {
+            snapshot.traceparent = value;
+        } else if (key == "tracestate") {
+            snapshot.tracestate = value;
+        } else if (key == "original_stream_id" && originalStreamId) {
+            *originalStreamId = value;
+        } else if (key == "reason" && reason) {
+            *reason = value;
+        }
+    }
+}
+
 } // namespace
 
 RedisStreamJobQueue::RedisStreamJobQueue(std::string redisClientName,
@@ -558,6 +610,172 @@ bool RedisStreamJobQueue::publishDeadLetter(const StreamJobMessage& message,
         }
         Logger::instance().error("Failed to publish dead-letter message: " + std::string(e.what()));
         return false;
+    }
+}
+
+std::optional<QueueGroupSnapshot> RedisStreamJobQueue::getQueueGroupSnapshot() noexcept {
+    try {
+        auto client = drogon::app().getRedisClient(redisClientName_);
+        if (!client) {
+            return std::nullopt;
+        }
+
+        std::lock_guard<std::mutex> commandLock(commandMutex_);
+
+        QueueGroupSnapshot snapshot;
+        snapshot.stream = streamName_;
+        snapshot.consumerGroup = groupName_;
+
+        auto groupSnapshot = client->execCommandSync<QueueGroupSnapshot>(
+            [this, snapshot](const drogon::nosql::RedisResult& result) mutable {
+                if (!result.isNil()) {
+                    for (const auto& groupEntry : result.asArray()) {
+                        const auto kv = groupEntry.asArray();
+                        const auto name = readStringField(kv, "name");
+                        if (!name.has_value() || *name != groupName_) {
+                            continue;
+                        }
+                        snapshot.pending = readIntegerField<long long>(kv, "pending").value_or(0);
+                        snapshot.lag = readIntegerField<long long>(kv, "lag").value_or(0);
+                        break;
+                    }
+                }
+                return snapshot;
+            },
+            "XINFO GROUPS %s",
+            streamName_.c_str());
+
+        auto consumers = client->execCommandSync<std::vector<QueueConsumerSnapshot>>(
+            [](const drogon::nosql::RedisResult& result) {
+                std::vector<QueueConsumerSnapshot> values;
+                if (result.isNil()) {
+                    return values;
+                }
+                for (const auto& consumerEntry : result.asArray()) {
+                    const auto kv = consumerEntry.asArray();
+                    QueueConsumerSnapshot item;
+                    item.name = readStringField(kv, "name").value_or("");
+                    item.pending = readIntegerField<long long>(kv, "pending").value_or(0);
+                    item.idleMs = readIntegerField<long long>(kv, "idle").value_or(0);
+                    if (!item.name.empty()) {
+                        values.push_back(std::move(item));
+                    }
+                }
+                return values;
+            },
+            "XINFO CONSUMERS %s %s",
+            streamName_.c_str(),
+            groupName_.c_str());
+
+        groupSnapshot.consumers = std::move(consumers);
+        return groupSnapshot;
+    } catch (const std::exception& e) {
+        Logger::instance().warn("Failed to query Redis queue snapshot: " + std::string(e.what()));
+        return std::nullopt;
+    }
+}
+
+std::optional<JobDispatchSnapshot> RedisStreamJobQueue::getJobDispatchSnapshot(const std::string& jobId) noexcept {
+    try {
+        auto client = drogon::app().getRedisClient(redisClientName_);
+        if (!client) {
+            return std::nullopt;
+        }
+
+        std::lock_guard<std::mutex> commandLock(commandMutex_);
+
+        auto findLatestInStream = [&client, &jobId](const std::string& streamName,
+                                                    bool deadLetter,
+                                                    const std::string& queueStreamName) -> std::optional<JobDispatchSnapshot> {
+            return client->execCommandSync<std::optional<JobDispatchSnapshot>>(
+                [&jobId, deadLetter, &queueStreamName](const drogon::nosql::RedisResult& result) {
+                    if (result.isNil()) {
+                        return std::optional<JobDispatchSnapshot>{std::nullopt};
+                    }
+
+                    for (const auto& entry : result.asArray()) {
+                        const auto envelope = entry.asArray();
+                        if (envelope.size() < 2) {
+                            continue;
+                        }
+
+                        const auto& entryId = envelope[0].asString();
+                        const auto fields = envelope[1].asArray();
+                        const auto messageJobId = readStringField(fields, "job_id");
+                        if (!messageJobId.has_value() || *messageJobId != jobId) {
+                            continue;
+                        }
+
+                        JobDispatchSnapshot snapshot;
+                        snapshot.hasDispatchRecord = true;
+                        snapshot.deadLettered = deadLetter;
+                        snapshot.streamId = entryId;
+
+                        std::string originalStreamId;
+                        std::string reason;
+                        populateDispatchFields(fields, snapshot, &originalStreamId, &reason);
+
+                        if (deadLetter) {
+                            snapshot.failureReason = reason;
+                            if (!originalStreamId.empty()) {
+                                snapshot.streamId = originalStreamId;
+                            }
+                        }
+
+                        return std::optional<JobDispatchSnapshot>{snapshot};
+                    }
+
+                    return std::optional<JobDispatchSnapshot>{std::nullopt};
+                },
+                "XREVRANGE %s + -",
+                streamName.c_str());
+        };
+
+        auto snapshot = findLatestInStream(deadLetterStreamName_, true, streamName_);
+        if (!snapshot.has_value()) {
+            snapshot = findLatestInStream(streamName_, false, streamName_);
+        }
+        if (!snapshot.has_value()) {
+            return std::nullopt;
+        }
+
+        if (!snapshot->deadLettered && !snapshot->streamId.empty()) {
+            auto pendingInfo = client->execCommandSync<std::optional<std::pair<std::string, long long>>>(
+                [streamId = snapshot->streamId](const drogon::nosql::RedisResult& result) {
+                    if (result.isNil()) {
+                        return std::optional<std::pair<std::string, long long>>{std::nullopt};
+                    }
+
+                    for (const auto& entry : result.asArray()) {
+                        const auto values = entry.asArray();
+                        if (values.size() < 4) {
+                            continue;
+                        }
+                        if (values[0].asString() != streamId) {
+                            continue;
+                        }
+                        return std::optional<std::pair<std::string, long long>>{
+                            std::make_pair(values[1].asString(), values[3].asInteger())};
+                    }
+
+                    return std::optional<std::pair<std::string, long long>>{std::nullopt};
+                },
+                "XPENDING %s %s - + 1000",
+                streamName_.c_str(),
+                groupName_.c_str());
+
+            if (pendingInfo.has_value()) {
+                snapshot->pending = true;
+                snapshot->consumerName = pendingInfo->first;
+                snapshot->deliveryCount = pendingInfo->second;
+            }
+        }
+
+        return snapshot;
+    } catch (const std::exception& e) {
+        Logger::instance().warn(
+            "Failed to query Redis dispatch snapshot for job " + jobId + ": " + std::string(e.what()));
+        return std::nullopt;
     }
 }
 

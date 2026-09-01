@@ -13,12 +13,40 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace drogon::nosql {
 class RedisResult;
 }
 
 namespace cortex::worker {
+
+struct QueueConsumerSnapshot {
+    std::string name;
+    long long pending{0};
+    long long idleMs{0};
+};
+
+struct QueueGroupSnapshot {
+    std::string stream;
+    std::string consumerGroup;
+    long long pending{0};
+    long long lag{0};
+    std::vector<QueueConsumerSnapshot> consumers;
+};
+
+struct JobDispatchSnapshot {
+    int attempt{0};
+    bool hasDispatchRecord{false};
+    bool pending{false};
+    bool deadLettered{false};
+    long long deliveryCount{0};
+    std::string streamId;
+    std::string consumerName;
+    std::string failureReason;
+    std::string traceparent;
+    std::string tracestate;
+};
 
 class RedisStreamJobQueue : public IJobDispatchQueue {
 public:
@@ -38,6 +66,12 @@ public:
     bool publishDeadLetter(const StreamJobMessage& message,
                            const std::string& reason,
                            const std::optional<cortex::observability::TraceContext>& traceContext = std::nullopt) noexcept override;
+
+    std::optional<QueueGroupSnapshot> getQueueGroupSnapshot() noexcept;
+    std::optional<JobDispatchSnapshot> getJobDispatchSnapshot(const std::string& jobId) noexcept;
+
+    const std::string& streamName() const noexcept { return streamName_; }
+    const std::string& groupName() const noexcept { return groupName_; }
 
 private:
     std::optional<StreamJobMessage> parseStreamMessage(const drogon::nosql::RedisResult& result) const;

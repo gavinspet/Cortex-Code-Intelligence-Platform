@@ -54,6 +54,16 @@ void AnalysisController::getAnalysis(
         // ── GitHub metadata (optional enrichment) ────────────────────────
         if (metadataService_) {
             auto meta = metadataService_->getMetadata(jobId);
+            if (!meta && jobRepository_) {
+                auto job = jobRepository_->findById(jobId);
+                if (job) {
+                    Logger::instance().info(
+                        "GitHub metadata cache miss for job=" + jobId +
+                        "; attempting on-demand fetch");
+                    meta = metadataService_->fetchAndStore(jobId, job->getRepositoryUrl());
+                }
+            }
+
             if (meta) {
                 Json::Value m;
                 m["name"]             = meta->name;
@@ -87,7 +97,8 @@ void AnalysisController::getAnalysis(
             } else {
                 data["metadata"] = Json::Value(Json::nullValue);
                 Logger::instance().info(
-                    "No GitHub metadata available for job=" + jobId);
+                    "No GitHub metadata available for job=" + jobId +
+                    " after cache lookup/fetch attempt");
             }
         }
 

@@ -1,6 +1,6 @@
 /**
  * @file GitHubClient.h
- * @brief GitHub REST API client using curl subprocess for reliable HTTPS.
+ * @brief GitHub REST API client using native libcurl.
  * @project Cortex Code Intelligence Platform
  * @author Kartick Kumar Ghosh
  * @github https://github.com/gavinspet
@@ -18,17 +18,19 @@ namespace cortex::github {
 
 /**
  * @class GitHubClient
- * @brief Calls the GitHub REST API via a curl subprocess.
+ * @brief Calls the GitHub REST API via native libcurl.
  *
- * Uses popen("curl ...") for HTTPS reliability — consistent with the
- * existing git clone pattern in JobWorker. Handles:
+ * Supports environment-driven behavior:
+ * - GITHUB_API_BASE_URL (default: https://api.github.com)
+ * - GITHUB_TOKEN (optional bearer auth token)
+ * - GITHUB_HTTP_TIMEOUT_MS (default: 10000)
+ * - GITHUB_HTTP_CONNECT_TIMEOUT_MS (default: 3000)
+ *
+ * Handles:
  * - 404 (not found)
  * - 403/429 (rate limit)
- * - network timeout (--max-time 10)
+ * - network timeouts
  * - JSON parse errors
- *
- * Future alternative: replace with a proper async HTTP library
- * by swapping this implementation behind IGitHubClient.
  */
 class GitHubClient final : public IGitHubClient {
 public:

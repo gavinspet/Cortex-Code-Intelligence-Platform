@@ -1,6 +1,7 @@
 #pragma once
 
 #include "analysis/AnalysisService.h"
+#include "domain/IJobRepository.h"
 #include "github/GitHubMetadataService.h"
 #include "technology/TechnologyService.h"
 #include "health/RepositoryHealthService.h"
@@ -17,11 +18,13 @@ class AnalysisController {
 public:
     explicit AnalysisController(
         std::shared_ptr<AnalysisService> service,
+        std::shared_ptr<cortex::domain::IJobRepository> jobRepository = nullptr,
         std::shared_ptr<cortex::github::GitHubMetadataService> metadataService = nullptr,
         std::shared_ptr<cortex::technology::TechnologyService> technologyService = nullptr,
         std::shared_ptr<cortex::health::RepositoryHealthService> healthService = nullptr,
         std::shared_ptr<cortex::insight::RepositoryInsightService> insightService = nullptr) noexcept
         : service_(std::move(service))
+        , jobRepository_(std::move(jobRepository))
         , metadataService_(std::move(metadataService))
         , technologyService_(std::move(technologyService))
         , healthService_(std::move(healthService))
@@ -35,6 +38,7 @@ public:
 
 private:
     std::shared_ptr<AnalysisService> service_;
+    std::shared_ptr<cortex::domain::IJobRepository> jobRepository_;
     std::shared_ptr<cortex::github::GitHubMetadataService> metadataService_;
     std::shared_ptr<cortex::technology::TechnologyService> technologyService_;
     std::shared_ptr<cortex::health::RepositoryHealthService> healthService_;
