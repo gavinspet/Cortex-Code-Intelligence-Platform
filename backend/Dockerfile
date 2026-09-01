@@ -5,6 +5,9 @@ FROM ubuntu:24.04 AS builder
 
 WORKDIR /build
 
+# Limit C++ build parallelism to keep peak memory below Render builder limits.
+ARG BUILD_JOBS=2
+
 # Install build dependencies including CA certificates
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -34,7 +37,7 @@ RUN git clone https://github.com/drogonframework/drogon.git /drogon && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13 \
         -DBUILD_SQLITE=OFF -DBUILD_POSTGRESQL=OFF && \
-    make -j$(nproc) && \
+    make -j${BUILD_JOBS} && \
     make install && \
     cd / && rm -rf /drogon
 
@@ -45,7 +48,7 @@ WORKDIR /cortex-src
 # Build Cortex backend
 RUN mkdir build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-13 && \
-    cmake --build . --parallel
+    cmake --build . --parallel ${BUILD_JOBS}
 
 # Stage 2: Runtime
 FROM ubuntu:24.04
