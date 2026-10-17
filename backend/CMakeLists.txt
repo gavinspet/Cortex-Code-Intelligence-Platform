@@ -49,6 +49,7 @@ set(SOURCES
     src/technology/TechnologyService.cpp
     src/health/RepositoryHealthService.cpp
     src/insight/RepositoryInsightService.cpp
+    src/utils/ProcessRunner.cpp
 )
 
 # Executable Definition
@@ -111,4 +112,18 @@ if(MSVC)
     target_compile_options(cortex PRIVATE /W4)
 else()
     target_compile_options(cortex PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# Focused security tests (URL validation + shell-free process execution).
+# BUILD_TESTING is forced OFF above for OpenTelemetry, so use a dedicated option.
+option(CORTEX_BUILD_TESTS "Build Cortex security tests" OFF)
+if(CORTEX_BUILD_TESTS)
+    enable_testing()
+    add_executable(cortex_security_tests
+        tests/security_tests.cpp
+        src/utils/ProcessRunner.cpp
+    )
+    target_include_directories(cortex_security_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_compile_options(cortex_security_tests PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME cortex_security_tests COMMAND cortex_security_tests)
 endif()

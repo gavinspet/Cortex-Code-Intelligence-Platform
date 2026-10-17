@@ -1,13 +1,17 @@
 #include "worker/JobWorker.h"
 #include "domain/AnalysisResult.h"
+#include "utils/EnvLimits.h"
+#include "utils/ProcessRunner.h"
+#include "utils/UrlValidator.h"
 #include <chrono>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
-#include <array>
-#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <functional>
+#include <limits>
+#include <vector>
 
 namespace {
 
@@ -547,10 +551,15 @@ bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
         const std::string workspaceBase = "/tmp/cortex-workspace";
         const std::string clonePath = workspaceBase + "/" + jobId;
 
-        // Ensure URL ends with .git for git clone compatibility
-        std::string cloneUrl = repoUrl;
-        if (cloneUrl.size() < 4 || cloneUrl.substr(cloneUrl.size() - 4) != ".git") {
-            cloneUrl += ".git";
+        // Re-validate in the worker: jobs persisted before stricter API validation
+        // may still hold unsafe URLs. The clone URL is rebuilt from validated parts.
+        const auto cloneUrl = cortex::utils::UrlValidator::canonicalCloneUrl(repoUrl);
+        if (!cloneUrl) {
+            cortex::logging::Logger::instance().error(
+                "Repository URL failed validation for job " + jobId + "; not cloning");
+            lastFailureRetryable_ = false;
+            lastFailureReason_ = "invalid_repository_url";
+            return false;
         }
 
         fs::create_directories(workspaceBase);
@@ -570,30 +579,60 @@ bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
 
         cortex::logging::Logger::instance().info("Cloning repository for job " + jobId);
 
-        // git clone --depth 1 into the clone path
-        std::string cmd = "GIT_TERMINAL_PROMPT=0 git clone --depth 1 --quiet " +
-                  cloneUrl + " " + clonePath + " 2>&1";
+        // git clone --depth 1 into the clone path. Executed without a shell: every
+        // argument is passed verbatim, and "--" ends option parsing.
+        const long long cloneTimeoutSeconds =
+            cortex::utils::cloneTimeoutSeconds(std::getenv("CLONE_TIMEOUT_SECONDS"));
+        cortex::utils::ProcessOptions cloneOptions;
+        cloneOptions.timeout = std::chrono::seconds(cloneTimeoutSeconds);
+        cloneOptions.maxFileSizeBytes = static_cast<unsigned long long>(cortex::utils::parsePositiveCapped(
+            std::getenv("CLONE_MAX_FILE_BYTES"), 1LL << 30, std::numeric_limits<long long>::max()));
+        cloneOptions.inheritEnv = {
+            "PATH", "HOME", "LANG", "LC_ALL", "TMPDIR",
+            "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy",
+            "SSL_CERT_FILE", "SSL_CERT_DIR"};
+        cloneOptions.setEnv = {
+            {"GIT_TERMINAL_PROMPT", "0"},
+            {"GIT_CONFIG_NOSYSTEM", "1"},
+            {"GIT_CONFIG_GLOBAL", "/dev/null"}};
 
-        std::array<char, 256> buf{};
-        std::string output;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (!pipe) {
-            cortex::logging::Logger::instance().error("Failed to run git clone for job: " + jobId);
-            return false;
-        }
-        while (fgets(buf.data(), buf.size(), pipe.get())) {
-            output += buf.data();
-        }
-        int exitCode = pclose(pipe.release());
+        const std::vector<std::string> cloneArgs = {
+            "git",
+            "-c", "protocol.allow=never",
+            "-c", "protocol.https.allow=always",
+            "-c", "http.lowSpeedLimit=1024",
+            "-c", "http.lowSpeedTime=30",
+            "-c", "core.hooksPath=/dev/null",
+            "clone", "--depth", "1", "--single-branch", "--no-tags", "--quiet",
+            "--", *cloneUrl, clonePath};
 
-        if (exitCode != 0) {
+        const auto clone = cortex::utils::ProcessRunner::run(cloneArgs, cloneOptions);
+        const std::string& output = clone.output;
+
+        if (!clone.succeeded()) {
+            std::string detail = output;
+            if (clone.timedOut) {
+                detail = "timed out after " + std::to_string(cloneTimeoutSeconds) + "s; " + detail;
+            }
+            if (!clone.error.empty()) {
+                detail += " [" + clone.error + "]";
+            }
             cortex::logging::Logger::instance().error(
-                "git clone failed for job " + jobId + ": " + output);
+                "git clone failed for job " + jobId + ": " + detail);
             if (cloneSpan) {
                 cloneSpan->setStatusError("clone_failed");
                 cloneSpan->end();
             }
-            if (isRetryableFailure(output)) {
+            if (!clone.started) {
+                lastFailureRetryable_ = true;
+                lastFailureReason_ = "clone_launch_failure";
+            } else if (clone.timedOut) {
+                lastFailureRetryable_ = true;
+                lastFailureReason_ = "clone_timeout";
+            } else if (clone.termSignal == SIGXFSZ) {
+                lastFailureRetryable_ = false;
+                lastFailureReason_ = "clone_file_size_limit";
+            } else if (isRetryableFailure(output)) {
                 lastFailureRetryable_ = true;
                 lastFailureReason_ = "clone_retryable_failure";
             } else {
@@ -684,7 +723,8 @@ bool JobWorker::analyzeRepository(const std::string& jobId, const std::string& r
             auto metadataScope = (tracing_ && metadataSpan) ? tracing_->activateSpan(metadataSpan) : nullptr;
             cortex::logging::Logger::instance().info(
                 "Fetching GitHub metadata for job " + jobId);
-            auto metadata = metadataService_->fetchAndStore(jobId, repoUrl);
+            // Canonical URL: lowercase host and no trailing slash, so mixed-case input still parses.
+            auto metadata = metadataService_->fetchAndStore(jobId, *cloneUrl);
             if (metadata) {
                 cortex::logging::Logger::instance().info(
                     "GitHub metadata stored for job " + jobId
