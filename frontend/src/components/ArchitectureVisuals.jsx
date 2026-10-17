@@ -162,17 +162,28 @@ export function Legend() {
   )
 }
 
-export function ArchNode({ node, element: Element = 'div', showLayer = false, compact = false }) {
+export function ArchNode({ node, element: Element = 'div', showLayer = false, compact = false, stacked = false }) {
   const { layer, icon, title, tech, note, code, tag } = node
   return (
-    <Element className={cn('arch-node', `layer-${layer}`, compact && 'arch-node-compact', tag === 'unverified' && 'is-dashed')}>
-      <div className="arch-node-head">
-        <IconTile layer={layer} icon={icon} />
-        <div className="arch-node-heading">
-          {showLayer ? <span className="arch-node-layer">{LAYERS[layer]}</span> : null}
+    <Element className={cn('arch-node', `layer-${layer}`, compact && 'arch-node-compact', stacked && 'arch-node-stacked', tag === 'unverified' && 'is-dashed')}>
+      {stacked ? (
+        <>
+          <div className="arch-node-head">
+            <IconTile layer={layer} icon={icon} />
+            <span className="arch-node-layer">{LAYERS[layer]}</span>
+          </div>
           <span className="arch-node-title">{title}</span>
+          <span className="arch-node-watermark" aria-hidden="true"><LayerIcon name={icon} size={88} /></span>
+        </>
+      ) : (
+        <div className="arch-node-head">
+          <IconTile layer={layer} icon={icon} />
+          <div className="arch-node-heading">
+            {showLayer ? <span className="arch-node-layer">{LAYERS[layer]}</span> : null}
+            <span className="arch-node-title">{title}</span>
+          </div>
         </div>
-      </div>
+      )}
       {tag ? <EnvTag kind={tag} /> : null}
       <TechMarks names={tech} />
       {note ? <p className="arch-node-note">{note}</p> : null}
@@ -186,13 +197,13 @@ export function StageDiagram({ label, stages }) {
   return (
     <ol className="arch-stages" aria-label={label}>
       {stages.map((stage, index) => (
-        <li key={stage.title} className="arch-stage">
+        <li key={stage.title} className={cn('arch-stage', stage.nodes.length === 1 && 'is-solo')} style={{ '--i': index }}>
           <p className="arch-stage-head">
             <span className="arch-stage-number" aria-hidden="true">{index + 1}</span>
             <span><span className="sr-only">Stage {index + 1}: </span>{stage.title}</span>
           </p>
           <ul className="arch-stage-nodes">
-            {stage.nodes.map((node) => <ArchNode key={node.title} node={node} element="li" showLayer />)}
+            {stage.nodes.map((node) => <ArchNode key={node.title} node={node} element="li" stacked />)}
           </ul>
           {index < stages.length - 1 ? <Arrow className="arch-stage-arrow" /> : null}
         </li>
