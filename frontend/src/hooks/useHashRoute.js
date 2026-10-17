@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const STATIC_PAGES = ['architecture', 'about', 'contact', 'system']
+const STATIC_PAGES = ['architecture', 'about', 'contact', 'system', 'appearance']
 const JOB_ID_PATTERN = /^[A-Za-z0-9-]{1,64}$/
 
 export function parseHash(hash) {

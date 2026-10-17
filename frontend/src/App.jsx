@@ -3,6 +3,7 @@ import { validateRepositoryUrl } from './lib/format.js'
 import { PROFILE_LINKS, PROJECT_LINKS } from './lib/links.js'
 import { useAnalysisJob } from './hooks/useAnalysisJob.js'
 import { navigate, parseHash, useHashRoute } from './hooks/useHashRoute.js'
+import { useTheme } from './hooks/useTheme.js'
 import { NavBar } from './components/NavBar.jsx'
 import { PageHeader } from './components/ui.jsx'
 import { BrandLogo, CortexMark } from './components/BrandIcons.jsx'
@@ -12,6 +13,7 @@ import { ArchitecturePage } from './pages/Architecture.jsx'
 import { AboutPage } from './pages/About.jsx'
 import { ContactPage } from './pages/Contact.jsx'
 import { SystemPage } from './pages/System.jsx'
+import { AppearancePage } from './pages/Appearance.jsx'
 
 const FOOTER_SOCIALS = [
   ['github', 'GitHub', PROFILE_LINKS.github],
@@ -27,7 +29,7 @@ function Footer() {
         <CortexMark size={32} />
         <div><p className="footer-title">Cortex</p><p className="footer-copy">Distributed code intelligence for public repositories.</p></div>
       </div>
-      <div className="footer-links"><a href={PROJECT_LINKS.repo} target="_blank" rel="noopener noreferrer">Source</a><a href={PROJECT_LINKS.health} target="_blank" rel="noopener noreferrer">Health</a><a href={PROJECT_LINKS.metrics} target="_blank" rel="noopener noreferrer">Metrics</a></div>
+      <div className="footer-links"><a href={PROJECT_LINKS.repo} target="_blank" rel="noopener noreferrer">Source</a><a href={PROJECT_LINKS.health} target="_blank" rel="noopener noreferrer">Health</a><a href={PROJECT_LINKS.metrics} target="_blank" rel="noopener noreferrer">Metrics</a><a href="#/appearance">Appearance</a></div>
       <ul className="footer-socials">
         {FOOTER_SOCIALS.map(([id, label, href]) => (
           <li key={id}>
@@ -57,6 +59,7 @@ function NotFoundPage() {
 
 export default function App() {
   const route = useHashRoute()
+  const [theme, setTheme] = useTheme()
   const [url, setUrl] = useState(EXAMPLE_REPOSITORY)
   const urlValidation = useMemo(() => validateRepositoryUrl(url), [url])
   const analysisJob = useAnalysisJob()
@@ -95,13 +98,16 @@ export default function App() {
     case 'system':
       page = <SystemPage analysisJob={analysisJob} />
       break
+    case 'appearance':
+      page = <AppearancePage theme={theme} setTheme={setTheme} />
+      break
     default:
       page = <NotFoundPage />
   }
 
   return (
     <div className="app-shell">
-      <NavBar routeName={route.name} />
+      <NavBar routeName={route.name} theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
       <main className="page-shell" role="main">
         {page}
       </main>
